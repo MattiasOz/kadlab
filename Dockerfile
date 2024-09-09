@@ -1,5 +1,7 @@
-FROM alpine:latest
+# FROM alpine:latest
+FROM archlinux
 
+RUN pacman -Syu --noconfirm && pacman -S go --noconfirm
 # Add the commands needed to put your compiled go binary in the container and
 # run it when the container starts.
 #
@@ -12,6 +14,7 @@ FROM alpine:latest
 #
 WORKDIR /app
 COPY kademlia ./kademlia
-# TODO this
-# RUN go mod 
+COPY main.go ./main.go
+COPY go.mod ./go.mod
+ENTRYPOINT go run main.go
 # $ docker build . -t kadlab
