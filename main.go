@@ -14,4 +14,7 @@ func main() {
 	contact := kademlia.NewContact(id, "localhost:8000")
 	fmt.Println(contact.String())
 	fmt.Printf("%v\n", contact)
+
+    // init
+    kademlia.Listen("172.19.0.3", ":3000")
 }

@@ -10,4 +10,8 @@ FROM alpine:latest
 # same directory, you need to ensure the image you build gets the name
 # "kadlab", which you do by using the following command:
 #
+WORKDIR /app
+COPY kademlia ./kademlia
+# TODO this
+# RUN go mod 
 # $ docker build . -t kadlab
