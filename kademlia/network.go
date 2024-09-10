@@ -32,11 +32,11 @@ func Init() (<-chan CommData, chan<- CommData) {
 func Listen(commReceive chan CommData) {
     localAddress, err := net.ResolveUDPAddr("udp", port)
     if err != nil {
-        fmt.Println("ERROR: ", err)
+        fmt.Println("cannot resolve UDPAddr: ", err)
     }
     connection, err := net.ListenUDP("udp", localAddress)
     if err != nil {
-        fmt.Println("ERROR: ", err)
+        fmt.Println("cannot listenUDP: ", err)
     }
     defer connection.Close()
     for {
@@ -44,17 +44,18 @@ func Listen(commReceive chan CommData) {
         buffer := make([]byte, 4096)
         length, _, err := connection.ReadFromUDP(buffer)
         if err != nil {
-            fmt.Println("ERROR: ", err)
+            fmt.Println("cannot ReadFromUDP: ", err)
         }
         buffer = buffer[:length]
         err = json.Unmarshal(buffer, &message)
         if err != nil {
-            fmt.Println("ERROR: ", err)
+            fmt.Println("cannot unmarshal: ", err)
         }
         // if (message.Identifier == com_id) {
         //     fmt.Println("Msg from: ", message.SenderIP)
         // }
         fmt.Println("Msg: ", message)
+        commReceive <- message
     }
 }
 
