@@ -5,6 +5,7 @@ package main
 import (
 	"d7024e/kademlia"
 	"fmt"
+    "time"
 )
 
 func main() {
@@ -16,5 +17,9 @@ func main() {
 	fmt.Printf("%v\n", contact)
 
     // init
-    kademlia.Listen("172.19.0.3", ":3000")
+    _, sendCh := kademlia.Init()
+    for {
+        time.Sleep(10*time.Second)
+        sendCh <- kademlia.CommData{"172.18.0.2", "172.18.0.3", "1", ":3000", ":3000", "com", "computer"}
+    }
 }
