@@ -1,0 +1,8 @@
+package kademlia
+
+const (
+    PING = "PING"
+    STORE = "STORE"
+    FIND_CONTACT = "FIND_CONTACT"
+    FIND_DATA = "FIND_DATA"
+)
