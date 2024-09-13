@@ -17,9 +17,18 @@ func main() {
 	fmt.Printf("%v\n", contact)
 
     // init
-    _, sendCh := kademlia.Init()
+    // _, sendCh := kademlia.Init()
+    localContact := kademlia.NewContact(
+        kademlia.NewRandomKademliaID(),
+        kademlia.GetLocalIP(),
+    )
+    targetContact := kademlia.NewContact(
+        kademlia.NewRandomKademliaID(),
+        "172.18.0.3",
+    )
+    network := kademlia.Init(&localContact)
     for {
         time.Sleep(10*time.Second)
-        sendCh <- kademlia.CommData{"172.18.0.2", "172.18.0.3", "1", ":3000", ":3000", "com", "computer"}
+        network.SendPingMessage(&targetContact, false)
     }
 }

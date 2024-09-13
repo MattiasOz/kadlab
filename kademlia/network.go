@@ -1,32 +1,40 @@
 package kademlia
 
-import(
-    "net"
-    "fmt"
-    "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"net"
 )
 
 const port = ":3000"
 
 type Network struct {
+    receiveCh chan CommData
+    sendCh chan CommData
+    localContact *Contact
 }
 
 type CommData struct {
     SenderIP string
     ReceiverIP string
-    SenderID string
+    SenderID KademliaID
     SenderPort string
     Port string
     RPCCommand string
     Data string
+    Response bool
 }
 
-func Init() (<-chan CommData, chan<- CommData) {
+// func (network *Network) Init() (<-chan CommData, chan<- CommData) {
+func Init(localContact *Contact) (*Network) {
     receive := make(chan CommData, 10)
     send := make(chan CommData, 10)
     go Listen(receive)
     go Broadcast(send)
-    return receive, send
+    network := Network{receive, send, localContact}
+    go network.Interpreter(receive)
+    return &network
+    // return receive, send
 }
 
 func Listen(commReceive chan CommData) {
@@ -87,6 +95,24 @@ func Broadcast(commSend chan CommData) {
     }
 }
 
+func (network *Network) Interpreter(commReceive chan CommData) {
+    for {
+        receivedCommData := <- commReceive
+        senderID := receivedCommData.SenderID
+        senderIP := receivedCommData.SenderIP
+        senderContact := NewContact(&senderID, senderIP)
+        switch receivedCommData.RPCCommand {
+        case PING:
+            if !receivedCommData.Response {
+                network.SendPingMessage(&senderContact, true)
+            }
+        default:
+            fmt.Println("Error. In the default case of Interpreter")
+            continue
+        }
+    }
+}
+
 func GetLocalIP() string {
     var localIP string
     addr, err := net.InterfaceAddrs()
@@ -107,8 +133,19 @@ func GetLocalIP() string {
     return localIP
 }
 
-func (network *Network) SendPingMessage(contact *Contact) {
-   // TODO 
+func (network *Network) SendPingMessage(contact *Contact, response bool) {
+    pingData := CommData{
+        network.localContact.Address,
+        contact.Address,
+        *(network.localContact.ID),
+        port,
+        port,
+        PING,
+        "",
+        response,
+    }
+    
+    network.sendCh <- pingData
 }
 
 func (network *Network) SendFindContactMessage(contact *Contact) {

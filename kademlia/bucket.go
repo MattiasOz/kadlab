@@ -32,7 +32,9 @@ func (bucket *bucket) AddContact(contact Contact) {
 	if element == nil {
 		if bucket.list.Len() < bucketSize {
 			bucket.list.PushFront(contact)
-		}
+		} else {
+            // TODO: check that the last node is alive and the the current if it's not
+        }
 	} else {
 		bucket.list.MoveToFront(element)
 	}
