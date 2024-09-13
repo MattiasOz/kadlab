@@ -26,13 +26,13 @@ type CommData struct {
 }
 
 // func (network *Network) Init() (<-chan CommData, chan<- CommData) {
-func Init(localContact *Contact) (*Network) {
+func NetworkInit(localContact *Contact, routingTable *RoutingTable) (*Network) {
     receive := make(chan CommData, 10)
     send := make(chan CommData, 10)
     go Listen(receive)
     go Broadcast(send)
     network := Network{receive, send, localContact}
-    go network.Interpreter(receive)
+    go network.Interpreter(receive, routingTable)
     return &network
     // return receive, send
 }
@@ -95,7 +95,7 @@ func Broadcast(commSend chan CommData) {
     }
 }
 
-func (network *Network) Interpreter(commReceive chan CommData) {
+func (network *Network) Interpreter(commReceive chan CommData, routingTable *RoutingTable) {
     for {
         receivedCommData := <- commReceive
         senderID := receivedCommData.SenderID
@@ -106,10 +106,17 @@ func (network *Network) Interpreter(commReceive chan CommData) {
             if !receivedCommData.Response {
                 network.SendPingMessage(&senderContact, true)
             }
+        case FIND_CONTACT:
+            //TODO
+        case FIND_DATA:
+            //TODO
+        case STORE:
+            //TODO
         default:
             fmt.Println("Error. In the default case of Interpreter")
             continue
         }
+        routingTable.AddContact(senderContact)
     }
 }
 
