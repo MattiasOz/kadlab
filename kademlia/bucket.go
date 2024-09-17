@@ -2,6 +2,7 @@ package kademlia
 
 import (
 	"container/list"
+	"time"
 )
 
 // bucket definition
@@ -19,7 +20,7 @@ func newBucket() *bucket {
 
 // AddContact adds the Contact to the front of the bucket
 // or moves it to the front of the bucket if it already existed
-func (bucket *bucket) AddContact(contact Contact) {
+func (bucket *bucket) AddContact(contact Contact) (bool, *Contact) {
 	var element *list.Element
 	for e := bucket.list.Front(); e != nil; e = e.Next() {
 		nodeID := e.Value.(Contact).ID
@@ -33,14 +34,31 @@ func (bucket *bucket) AddContact(contact Contact) {
 		if bucket.list.Len() < bucketSize {
 			bucket.list.PushFront(contact)
 		} else {
-            // TODO: check that the last node is alive and the the current if it's not
-        }
+			// TODO: check that the last node is alive and add the current if it's not
+			oldContact := bucket.list.Back().Value.(Contact)
+			go bucket.heartbeat(oldContact, contact)
+			return true, &oldContact // indicating that we want to ping
+		}
 	} else {
 		bucket.list.MoveToFront(element)
 	}
+	return false, nil
 }
 
-// GetContactAndCalcDistance returns an array of Contacts where 
+func (bucket *bucket) heartbeat(oldContact Contact, newContact Contact) {
+
+	time.Sleep(10 * time.Second)
+	if bucket.list.Back().Value != oldContact {
+		// oldest node returned ping in time
+		return
+	}
+	// oldest node did not return the ping
+	bucket.list.Remove(bucket.list.Back())
+	bucket.list.PushFront(newContact)
+
+}
+
+// GetContactAndCalcDistance returns an array of Contacts where
 // the distance has already been calculated
 func (bucket *bucket) GetContactAndCalcDistance(target *KademliaID) []Contact {
 	var contacts []Contact
