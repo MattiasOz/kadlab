@@ -5,7 +5,7 @@ package main
 import (
 	"d7024e/kademlia"
 	"fmt"
-    "time"
+	"time"
 )
 
 func main() {
@@ -16,15 +16,15 @@ func main() {
 	fmt.Println(contact.String())
 	fmt.Printf("%v\n", contact)
 
-    // init
-    // _, sendCh := kademlia.Init()
-    targetContact := kademlia.NewContact(
-        kademlia.NewRandomKademliaID(),
-        "172.18.0.3",
-    )
-    kadlab := kademlia.Init()
-    for {
-        kadlab.Pring(&targetContact)
-        time.Sleep(10*time.Second)
-    }
+	// init
+	// _, sendCh := kademlia.Init()
+	targetContact := kademlia.NewContact(
+		kademlia.NewRandomKademliaID(),
+		"172.18.0.3",
+	)
+	kadlab := kademlia.Init()
+	for {
+		kadlab.Ping(&targetContact)
+		time.Sleep(10 * time.Second)
+	}
 }

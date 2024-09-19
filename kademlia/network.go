@@ -4,14 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 )
 
 const port = ":3000"
 
 type Network struct {
-	receiveCh    chan CommData
-	sendCh       chan CommData
-	localContact *Contact
+	receiveCh     chan CommData
+	sendCh        chan CommData
+	localContact  *Contact
+	findContactCh chan []Contact
 }
 
 type CommData struct {
@@ -31,7 +33,8 @@ func NetworkInit(localContact *Contact, routingTable *RoutingTable) *Network {
 	send := make(chan CommData, 10)
 	go Listen(receive)
 	go Broadcast(send)
-	network := Network{receive, send, localContact}
+	contacts := make(chan []Contact, 10)
+	network := Network{receive, send, localContact, contacts}
 	go network.Interpreter(receive, routingTable)
 	return &network
 	// return receive, send
@@ -89,7 +92,6 @@ func Broadcast(commSend chan CommData) {
 			fmt.Println("ERROR: ", err)
 		}
 		connection.Write(convMsg)
-		fmt.Println("COMM: Message sent successfully!")
 
 		connection.Close()
 	}
@@ -107,7 +109,11 @@ func (network *Network) Interpreter(commReceive chan CommData, routingTable *Rou
 				network.SendPingMessage(&senderContact, true)
 			}
 		case FIND_CONTACT:
-			//TODO
+			if !receivedCommData.Response {
+				network.SendFindContactResponse(&senderContact, routingTable, receivedCommData.Data)
+			} else {
+				network.findContactCh <- ConvertDataToContactlist(receivedCommData.Data, *network.localContact)
+			}
 		case FIND_DATA:
 			//TODO
 		case STORE:
@@ -162,10 +168,32 @@ func (network *Network) SendFindContactMessage(contact *Contact) {
 	// TODO
 }
 
+func (network *Network) SendFindContactResponse(contact *Contact, routingTable *RoutingTable, receivedCommData string) {
+	// TODO
+}
+
 func (network *Network) SendFindDataMessage(hash string) {
 	// TODO
 }
 
 func (network *Network) SendStoreMessage(data []byte) {
 	// TODO
+}
+
+func ConvertDataToContactlist(recievedCommData string, localContact Contact) (contacts []Contact) {
+	contactStrings := strings.Split(recievedCommData, ";")
+
+	for _, contactString := range contactStrings {
+		contactElements := strings.Split(contactString, ",")
+		kademliaID := NewKademliaID(contactElements[0])
+		fmt.Println("The kademliaId we found was ", kademliaID)
+		address := contactElements[1]
+		distance := kademliaID.CalcDistance(*localContact.ID)
+
+		contact := Contact{kademliaID, address, distance}
+
+		contacts = append(contacts, contact)
+	}
+
+	return contacts
 }

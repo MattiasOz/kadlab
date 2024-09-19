@@ -34,7 +34,7 @@ func (bucket *bucket) AddContact(contact Contact) (bool, *Contact) {
 		if bucket.list.Len() < bucketSize {
 			bucket.list.PushFront(contact)
 		} else {
-			// TODO: check that the last node is alive and add the current if it's not
+			// Check that the last node is alive and add the current if it's not
 			oldContact := bucket.list.Back().Value.(Contact)
 			go bucket.heartbeat(oldContact, contact)
 			return true, &oldContact // indicating that we want to ping
@@ -47,7 +47,7 @@ func (bucket *bucket) AddContact(contact Contact) (bool, *Contact) {
 
 func (bucket *bucket) heartbeat(oldContact Contact, newContact Contact) {
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(3 * time.Second)
 	if bucket.list.Back().Value != oldContact {
 		// oldest node returned ping in time
 		return

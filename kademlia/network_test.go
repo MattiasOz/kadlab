@@ -1,6 +1,7 @@
 package kademlia
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -14,6 +15,38 @@ func TestInit(t *testing.T) {
 	net.sendCh <- data
 	if data != <-net.receiveCh {
 		t.Error("The data did not match")
+	}
+}
+
+func TestConvertDataToContactlist(t *testing.T) {
+	localContact := Contact{NewKademliaID("FFFFFFFF00000000000000000000000000000000"), "192.128.0.1", NewKademliaID("0000000000000000000000000000000000000000")}
+	testID1 := NewKademliaID("FFFFFFFF0000000000000000000000000000000F")
+	testID2 := NewKademliaID("FFFFFFFF000000000000000000000000000000F0")
+	testID3 := NewKademliaID("FFFFFFFF00000000000000000000000000000F00")
+
+	testIP1 := "192.128.0.2:3000"
+	testIP2 := "192.128.0.3:3000"
+	testIP3 := "192.128.0.4:3000"
+
+	testString := fmt.Sprintf("%s,%s;%s,%s;%s,%s", testID1, testIP1, testID2, testIP2, testID3, testIP3)
+	fmt.Println("The test string is: ", testString)
+	testContacts := ConvertDataToContactlist(testString, localContact)
+
+	contact1 := Contact{testID1, testIP1, testID1.CalcDistance(*localContact.ID)}
+	contact2 := Contact{testID2, testIP2, testID2.CalcDistance(*localContact.ID)}
+	contact3 := Contact{testID3, testIP3, testID3.CalcDistance(*localContact.ID)}
+	correctContacts := [...]Contact{contact1, contact2, contact3}
+
+	for i := 0; i < 3; i++ {
+		if *testContacts[i].ID != *correctContacts[i].ID {
+			t.Errorf("TestConvertDataToContactlist failed, element %v should've had ID %v but had ID %v", i, correctContacts[i].ID, testContacts[i].ID)
+		}
+		if testContacts[i].Address != correctContacts[i].Address {
+			t.Errorf("TestConvertDataToContactlist failed, element %v should've had address %v but had address %v", i, correctContacts[i].Address, testContacts[i].Address)
+		}
+		if *testContacts[i].distance != *correctContacts[i].distance {
+			t.Errorf("TestConvertDataToContactlist failed, element %v should've had distance %v but had distance %v", i, correctContacts[i].distance, testContacts[i].distance)
+		}
 	}
 }
 
