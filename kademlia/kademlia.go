@@ -14,6 +14,9 @@ type Kademlia struct {
 
 func Init() Kademlia {
 	localID := NewRandomKademliaID()
+	if GetLocalIP() == "172.18.0.3" { // En hårdkodad bootstrap-nod
+		localID = NewKademliaID("FFFFFFFF00000000000000000000000000000000")
+	}
 	localContact := NewContact(localID, GetLocalIP())
 	routingTable := NewRoutingTable(localContact)
 
@@ -26,26 +29,25 @@ func Init() Kademlia {
 	return res
 }
 
-// TODO: this should probably be automated and removed
 func (kademlia *Kademlia) Ping(target *Contact) {
 	kademlia.network.SendPingMessage(target, false)
 }
 
-func (kademlia *Kademlia) LookupContact(target *KademliaID) {
+func (kademlia *Kademlia) LookupContact(target *KademliaID) []Contact {
 	nClosestContacts := kademlia.routingTable.FindClosestContacts(target, concurrencyParameter)
 
-	for _, contact := range nClosestContacts {
+	for _, contact := range nClosestContacts { //Kontakta alfa närmsta kontakterna till målet
 		kademlia.network.SendFindContactMessage(&contact, target.String())
 	}
 
-	go kademlia.ProcessContactLookupReturns(target)
+	return kademlia.ProcessContactLookupReturns(target)
 }
 
-func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) {
+func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) []Contact {
 	time.Sleep(3 * time.Second)
 	var closestNodeSeen Contact
 	var contactList []Contact
-	for {
+	for { //Ta emot svaren (från de som hunnit svara)
 		if len(Kademlia.network.findContactCh) == 0 {
 			break
 		}
@@ -59,12 +61,53 @@ func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) {
 	closestNodeSeen = contactList[0]
 
 	var newClosestNode Contact
-	leftToSendTo := concurrencyParameter
 	for {
-		if newClosestNode.distance == closestNodeSeen.distance {
+		if newClosestNode.distance == closestNodeSeen.distance { // Om vi inte hittar någon närmare nod går vi vidare
 			break
 		}
+		closestNodeSeen = newClosestNode
+		for i := 0; i < concurrencyParameter; i++ { // Kontakta alfa nya närmsta
+			Kademlia.network.SendFindContactMessage(&contactList[i], target.String())
+		}
+		time.Sleep(2 * time.Second)
+		for { // Ta emot svaren från alfa nya närmsta
+			if len(Kademlia.network.findContactCh) == 0 {
+				break
+			}
+			returnedContact := <-Kademlia.network.findContactCh
+			if !IsContactAlreadyInList(contactList, returnedContact) {
+				contactList = append(contactList, returnedContact)
+			}
+		}
+		sort.Slice(contactList, func(i, j int) bool { return contactList[i].distance.Less(contactList[j].distance) })
+		newClosestNode = contactList[0]
 	}
+
+	// Skicka och ta emot svaren från k närmsta till målet som är okontaktade
+	for i := concurrencyParameter; i < bucketSize; i++ {
+		Kademlia.network.SendFindContactMessage(&contactList[i], target.String())
+	}
+	time.Sleep(2 * time.Second)
+	for {
+		if len(Kademlia.network.findContactCh) == 0 {
+			break
+		}
+		returnedContact := <-Kademlia.network.findContactCh
+		if !IsContactAlreadyInList(contactList, returnedContact) {
+			contactList = append(contactList, returnedContact)
+		}
+	}
+	sort.Slice(contactList, func(i, j int) bool { return contactList[i].distance.Less(contactList[j].distance) })
+
+	if len(contactList) > bucketSize {
+		return contactList[:bucketSize]
+	} else {
+		return contactList
+	}
+}
+
+func (Kademlia *Kademlia) LookupSelf() { // Used for bootstrapping
+	Kademlia.LookupContact(Kademlia.routingTable.me.ID)
 }
 
 func IsContactAlreadyInList(contactList []Contact, newContact Contact) bool {
