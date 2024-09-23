@@ -28,7 +28,7 @@ func TestConvertDataToContactlist(t *testing.T) {
 	testIP2 := "192.128.0.3:3000"
 	testIP3 := "192.128.0.4:3000"
 
-	testString := fmt.Sprintf("%s,%s;%s,%s;%s,%s", testID1, testIP1, testID2, testIP2, testID3, testIP3)
+	testString := fmt.Sprintf("%s,%s;%s,%s;%s,%s;", testID1, testIP1, testID2, testIP2, testID3, testIP3)
 	fmt.Println("The test string is: ", testString)
 	testContacts := ConvertDataToContactlist(testString, localContact)
 

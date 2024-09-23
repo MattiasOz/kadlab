@@ -13,7 +13,7 @@ type Network struct {
 	receiveCh     chan CommData
 	sendCh        chan CommData
 	localContact  *Contact
-	findContactCh chan []Contact
+	findContactCh chan Contact
 }
 
 type CommData struct {
@@ -33,7 +33,7 @@ func NetworkInit(localContact *Contact, routingTable *RoutingTable) *Network {
 	send := make(chan CommData, 10)
 	go Listen(receive)
 	go Broadcast(send)
-	contacts := make(chan []Contact, 10)
+	contacts := make(chan Contact, 20)
 	network := Network{receive, send, localContact, contacts}
 	go network.Interpreter(receive, routingTable)
 	return &network
@@ -112,7 +112,14 @@ func (network *Network) Interpreter(commReceive chan CommData, routingTable *Rou
 			if !receivedCommData.Response {
 				network.SendFindContactResponse(&senderContact, routingTable, receivedCommData.Data)
 			} else {
-				network.findContactCh <- ConvertDataToContactlist(receivedCommData.Data, *network.localContact)
+				kClosestContactsToContactedNode := ConvertDataToContactlist(receivedCommData.Data, *network.localContact)
+				for _, contact := range kClosestContactsToContactedNode {
+					network.findContactCh <- contact
+					shouldPing, pingTo := routingTable.AddContact(contact)
+					if shouldPing { // Bucket is full, heartbeat ping oldest contact in the bucket
+						network.SendPingMessage(pingTo, false)
+					}
+				}
 			}
 		case FIND_DATA:
 			//TODO
@@ -122,8 +129,8 @@ func (network *Network) Interpreter(commReceive chan CommData, routingTable *Rou
 			fmt.Println("Error. In the default case of Interpreter")
 			continue
 		}
-		shouldPing, pingTo := routingTable.AddContact(senderContact)
-		if shouldPing { // Bucket is full, heartbeat ping oldest contact in the bucket
+		shouldPing, pingTo := routingTable.AddContact(senderContact) //
+		if shouldPing {                                              // Bucket is full, heartbeat ping oldest contact in the bucket
 			network.SendPingMessage(pingTo, false)
 		}
 	}
@@ -164,12 +171,40 @@ func (network *Network) SendPingMessage(contact *Contact, response bool) {
 	network.sendCh <- pingData
 }
 
-func (network *Network) SendFindContactMessage(contact *Contact) {
-	// TODO
+func (network *Network) SendFindContactMessage(contact *Contact, findContactData string) {
+	findContactMessage := CommData{
+		network.localContact.Address,
+		contact.Address,
+		*(network.localContact.ID),
+		port,
+		port,
+		FIND_CONTACT,
+		findContactData,
+		false,
+	}
+	network.sendCh <- findContactMessage
 }
 
 func (network *Network) SendFindContactResponse(contact *Contact, routingTable *RoutingTable, receivedCommData string) {
-	// TODO
+	kademliaIDtoLookup := NewKademliaID(receivedCommData)
+	kClosestContacts := routingTable.FindClosestContacts(kademliaIDtoLookup, bucketSize)
+
+	kClosestContactData := ""
+	for _, contact := range kClosestContacts {
+		kClosestContactData = kClosestContactData + fmt.Sprintf("%s,%s;", contact.ID, contact.Address)
+	}
+
+	findContactResponse := CommData{
+		network.localContact.Address,
+		contact.Address,
+		*(network.localContact.ID),
+		port,
+		port,
+		FIND_CONTACT,
+		kClosestContactData,
+		true,
+	}
+	network.sendCh <- findContactResponse
 }
 
 func (network *Network) SendFindDataMessage(hash string) {
@@ -182,6 +217,7 @@ func (network *Network) SendStoreMessage(data []byte) {
 
 func ConvertDataToContactlist(recievedCommData string, localContact Contact) (contacts []Contact) {
 	contactStrings := strings.Split(recievedCommData, ";")
+	contactStrings = contactStrings[:len(contactStrings)-1]
 
 	for _, contactString := range contactStrings {
 		contactElements := strings.Split(contactString, ",")
