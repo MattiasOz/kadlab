@@ -19,9 +19,9 @@ services:
 #              cpus: "0.1"
 #              memory: 50M
       restart_policy:
-        condition: on-failure
+        condition: always
         delay: 5s
-        max_attempts: 3
+        #max_attempts: 3
         window: 10s
 #    ports:
 #      - "4000:80"
