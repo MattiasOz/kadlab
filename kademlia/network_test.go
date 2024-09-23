@@ -50,6 +50,84 @@ func TestConvertDataToContactlist(t *testing.T) {
 	}
 }
 
+func TestSendPingMessage(t *testing.T) {
+	id := NewKademliaID("FFFFFFFF00000000000000000000000000000000")
+	localContact := NewContact(id, "localhost:8000")
+	targetContact := NewContact(
+		NewRandomKademliaID(),
+		"172.18.0.3",
+	)
+
+	receive := make(chan CommData, 10)
+	send := make(chan CommData, 10)
+	contacts := make(chan Contact, 20)
+	network := Network{receive, send, &localContact, contacts}
+	network.SendPingMessage(&targetContact, false)
+	message := <-send
+	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", PING, "", false}
+	if message != testCommData {
+		t.Errorf("TestSendPingMessage failed, got %v, expected %v", message, testCommData)
+	}
+}
+
+func TestSendFindContactMessage(t *testing.T) {
+	id := NewKademliaID("FFFFFFFF00000000000000000000000000000000")
+	localContact := NewContact(id, "localhost:8000")
+	targetContact := NewContact(
+		NewRandomKademliaID(),
+		"172.18.0.3",
+	)
+
+	receive := make(chan CommData, 10)
+	send := make(chan CommData, 10)
+	contacts := make(chan Contact, 20)
+	network := Network{receive, send, &localContact, contacts}
+	network.SendFindContactMessage(&targetContact, network.localContact.Address)
+	message := <-send
+	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, network.localContact.Address, false}
+	if message != testCommData {
+		t.Errorf("TestSendFindContactMessage failed, got %v, expected %v", message, testCommData)
+	}
+}
+
+func TestSendFindContactResponse(t *testing.T) {
+	id := NewKademliaID("FFFFFFFF00000000000000000000000000000000")
+	localContact := NewContact(id, "localhost:8000")
+	targetContact1 := NewContact(
+		NewKademliaID("FFFFFFFF0000000000000000000000000000000F"),
+		"172.18.0.3",
+	)
+	targetContact2 := NewContact(
+		NewKademliaID("FFFFFFFF000000000000000000000000000000FF"),
+		"172.18.0.4",
+	)
+	targetContact3 := NewContact(
+		NewKademliaID("FFFFFFFF000000000000000000000000000000F0"),
+		"172.18.0.5",
+	)
+
+	routingTable := NewRoutingTable(localContact)
+	routingTable.AddContact(targetContact1)
+	routingTable.AddContact(targetContact2)
+	routingTable.AddContact(targetContact3)
+
+	receive := make(chan CommData, 10)
+	send := make(chan CommData, 10)
+	contacts := make(chan Contact, 20)
+	network := Network{receive, send, &localContact, contacts}
+	network.SendFindContactResponse(&targetContact1, routingTable, targetContact1.ID.String())
+	message := <-send
+	orderedContacts := ""
+	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact1.ID, targetContact1.Address)
+	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact2.ID, targetContact2.Address)
+	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact3.ID, targetContact3.Address)
+
+	testCommData := CommData{network.localContact.Address, targetContact1.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, orderedContacts, true}
+	if message != testCommData {
+		t.Errorf("TestSendFindContactResponse failed, got %v, expected %v", message, testCommData)
+	}
+}
+
 // // This test sucks
 // func TestListen(t *testing.T) {
 //     Init()
