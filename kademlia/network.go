@@ -14,6 +14,8 @@ type Network struct {
 	sendCh        chan CommData
 	localContact  *Contact
 	findContactCh chan Contact
+
+	dataStore []string
 }
 
 type CommData struct {
@@ -34,7 +36,8 @@ func NetworkInit(localContact *Contact, routingTable *RoutingTable) *Network {
 	go Listen(receive)
 	go Broadcast(send)
 	contacts := make(chan Contact, 20)
-	network := Network{receive, send, localContact, contacts}
+	var dataStore []string
+	network := Network{receive, send, localContact, contacts, dataStore}
 	go network.Interpreter(receive, routingTable)
 	return &network
 	// return receive, send
@@ -124,7 +127,7 @@ func (network *Network) Interpreter(commReceive chan CommData, routingTable *Rou
 		case FIND_DATA:
 			//TODO
 		case STORE:
-			//TODO
+			network.StoreData(receivedCommData.Data)
 		default:
 			fmt.Println("Error. In the default case of Interpreter")
 			continue
@@ -211,8 +214,23 @@ func (network *Network) SendFindDataMessage(hash string) {
 	// TODO
 }
 
-func (network *Network) SendStoreMessage(data []byte) {
-	// TODO
+func (network *Network) SendStoreMessage(data []byte, contact Contact) {
+	storeMessage := CommData{
+		network.localContact.Address,
+		contact.Address,
+		*(network.localContact.ID),
+		port,
+		port,
+		STORE,
+		string(data),
+		false,
+	}
+
+	network.sendCh <- storeMessage
+}
+
+func (network *Network) StoreData(data string) {
+	network.dataStore = append(network.dataStore, data)
 }
 
 func ConvertDataToContactlist(recievedCommData string, localContact Contact) (contacts []Contact) {
@@ -224,7 +242,7 @@ func ConvertDataToContactlist(recievedCommData string, localContact Contact) (co
 		kademliaID := NewKademliaID(contactElements[0])
 		fmt.Println("The kademliaId we found was ", kademliaID)
 		address := contactElements[1]
-		distance := kademliaID.CalcDistance(*localContact.ID)
+		distance := kademliaID.CalcDistance(*localContact.ID) // This distance isn't used
 
 		contact := Contact{kademliaID, address, distance}
 

@@ -1,6 +1,8 @@
 package kademlia
 
 import (
+	"crypto/sha1"
+	"encoding/hex"
 	"sort"
 	"time"
 )
@@ -57,7 +59,9 @@ func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) []Cont
 		}
 
 	}
-	sort.Slice(contactList, func(i, j int) bool { return contactList[i].distance.Less(contactList[j].distance) })
+	sort.Slice(contactList, func(i, j int) bool {
+		return contactList[i].distance.CalcDistance(*target).Less(contactList[j].distance.CalcDistance(*target))
+	})
 	closestNodeSeen = contactList[0]
 
 	var newClosestNode Contact
@@ -79,7 +83,9 @@ func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) []Cont
 				contactList = append(contactList, returnedContact)
 			}
 		}
-		sort.Slice(contactList, func(i, j int) bool { return contactList[i].distance.Less(contactList[j].distance) })
+		sort.Slice(contactList, func(i, j int) bool {
+			return contactList[i].distance.CalcDistance(*target).Less(contactList[j].distance.CalcDistance(*target))
+		})
 		newClosestNode = contactList[0]
 	}
 
@@ -97,7 +103,9 @@ func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) []Cont
 			contactList = append(contactList, returnedContact)
 		}
 	}
-	sort.Slice(contactList, func(i, j int) bool { return contactList[i].distance.Less(contactList[j].distance) })
+	sort.Slice(contactList, func(i, j int) bool {
+		return contactList[i].distance.CalcDistance(*target).Less(contactList[j].distance.CalcDistance(*target))
+	})
 
 	if len(contactList) > bucketSize {
 		return contactList[:bucketSize]
@@ -124,5 +132,12 @@ func (kademlia *Kademlia) LookupData(hash string) {
 }
 
 func (kademlia *Kademlia) Store(data []byte) {
-	// TODO
+	storedDataHash := sha1.Sum(data)
+
+	kademliaIDofStoredDataHash := NewKademliaID(hex.EncodeToString(storedDataHash[:]))
+	contactsToStoreDataIn := kademlia.LookupContact(kademliaIDofStoredDataHash)
+
+	for _, contact := range contactsToStoreDataIn {
+		kademlia.network.SendStoreMessage(data, contact)
+	}
 }

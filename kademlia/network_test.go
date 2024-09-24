@@ -61,7 +61,7 @@ func TestSendPingMessage(t *testing.T) {
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
 	contacts := make(chan Contact, 20)
-	network := Network{receive, send, &localContact, contacts}
+	network := Network{receive, send, &localContact, contacts, []string{}}
 	network.SendPingMessage(&targetContact, false)
 	message := <-send
 	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", PING, "", false}
@@ -81,7 +81,7 @@ func TestSendFindContactMessage(t *testing.T) {
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
 	contacts := make(chan Contact, 20)
-	network := Network{receive, send, &localContact, contacts}
+	network := Network{receive, send, &localContact, contacts, []string{}}
 	network.SendFindContactMessage(&targetContact, network.localContact.Address)
 	message := <-send
 	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, network.localContact.Address, false}
@@ -114,7 +114,7 @@ func TestSendFindContactResponse(t *testing.T) {
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
 	contacts := make(chan Contact, 20)
-	network := Network{receive, send, &localContact, contacts}
+	network := Network{receive, send, &localContact, contacts, []string{}}
 	network.SendFindContactResponse(&targetContact1, routingTable, targetContact1.ID.String())
 	message := <-send
 	orderedContacts := ""
