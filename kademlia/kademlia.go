@@ -90,9 +90,16 @@ func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) []Cont
 	}
 
 	// Skicka och ta emot svaren från k närmsta till målet som är okontaktade
-	for i := concurrencyParameter; i < bucketSize; i++ {
-		Kademlia.network.SendFindContactMessage(&contactList[i], target.String())
+	if len(contactList) >= bucketSize {
+		for i := concurrencyParameter; i < bucketSize; i++ {
+			Kademlia.network.SendFindContactMessage(&contactList[i], target.String())
+		}
+	} else {
+		for i := concurrencyParameter; i < len(contactList); i++ {
+			Kademlia.network.SendFindContactMessage(&contactList[i], target.String())
+		}
 	}
+
 	time.Sleep(2 * time.Second)
 	for {
 		if len(Kademlia.network.findContactCh) == 0 {
