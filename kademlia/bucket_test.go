@@ -41,9 +41,9 @@ func TestAddContact(t *testing.T) {
     contact := NewContact(NewRandomKademliaID(), ip)
     res, oldContact := bucket.AddContact(contact)
     if res != true {
-        t.Errorf("Bucket is not full")
+        t.Errorf("Heartbeat1: Bucket is not full")
     } else if *oldContact != contacts[0] {
-        t.Error("Eldest contact was not returned")
+        t.Error("Heartbeat1: Eldest contact was not returned")
     }
 
 
@@ -54,6 +54,28 @@ func TestAddContact(t *testing.T) {
     }
     if bucket.list.Front().Value != contact {
         t.Errorf("The new contact was not inserted after heartbeat\n%v, %v", bucket.list.Front().Value.(Contact), contact)
+    }
+
+    it++
+    ip = "172.19.0." + fmt.Sprint(it)
+    contact = NewContact(NewRandomKademliaID(), ip)
+    res, oldContact = bucket.AddContact(contact)
+    if res != true {
+        t.Errorf("Heartbeat2: Bucket is not full")
+    } else if *oldContact != contacts[1] {
+        t.Error("Heartbeat2: Eldest contact was not returned")
+    }
+
+    bucket.list.MoveToFront(bucket.list.Back())
+
+
+    // check that heartbeat works
+    time.Sleep(heartbeatTimeout + 100*time.Millisecond)
+    if bucket.list.Front().Value == contact {
+        t.Errorf("The new contact was inserted anyway\n%v, %v", contact, bucket.list.Front().Value.(Contact))
+    }
+    if bucket.list.Front().Value.(Contact) != *oldContact {
+        t.Errorf("The old contact wasn't moved to the front\n%v, %v", oldContact, bucket.list.Front().Value.(Contact))
     }
 
     //check that there won't be duplicates
@@ -85,5 +107,14 @@ func TestGetContactAndCalcDistance(t *testing.T) {
         if cont2.distance == nil {
             t.Error("The address wansn't properly added")
         }
+    }
+}
+
+
+// this test is useless
+func TestLen(t *testing.T) {
+    bucket, _, _ := fillBucket(t)
+    if bucket.list.Len() != bucket.Len(){
+        t.Errorf("Bucket length failure, %d != %d", bucket.list.Len(), bucket.Len())
     }
 }
