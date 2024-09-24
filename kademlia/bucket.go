@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+const heartbeatTimeout = 3 * time.Second
+
 // bucket definition
 // contains a List
 type bucket struct {
@@ -30,6 +32,7 @@ func (bucket *bucket) AddContact(contact Contact) (bool, *Contact) {
 		}
 	}
 
+    // if contact is not already in bucket
 	if element == nil {
 		if bucket.list.Len() < bucketSize {
 			bucket.list.PushFront(contact)
@@ -47,7 +50,7 @@ func (bucket *bucket) AddContact(contact Contact) (bool, *Contact) {
 
 func (bucket *bucket) heartbeat(oldContact Contact, newContact Contact) {
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(heartbeatTimeout)
 	if bucket.list.Back().Value != oldContact {
 		// oldest node returned ping in time
 		return
