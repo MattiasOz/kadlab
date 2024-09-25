@@ -6,12 +6,15 @@ import (
 )
 
 func TestProcessContactLookupReturns(t *testing.T) {
-	kadTest := Init()
-	dataChan := kadTest.network.findContactCh
-	go dataspoofer(dataChan)
 	targetID := NewKademliaID("FFFFFFFF0000000000000000000000000000000F")
 	targetAdr := "172.0.0.10"
 	targetContact := NewContact(targetID, targetAdr)
+
+	kadTest := Init()
+	kadTest.network.CreateNewFindContactChannel(*targetContact.ID)
+	dataChan := kadTest.network.lookupChs[*targetContact.ID]
+	go dataspoofer(dataChan)
+
 	returnedList := kadTest.ProcessContactLookupReturns(targetContact.ID)
 
 	// These are the contacts we'll be placing in the reference list

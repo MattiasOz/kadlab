@@ -10,12 +10,12 @@ import (
 const port = ":3000"
 
 type Network struct {
-	receiveCh     chan CommData
-	sendCh        chan CommData
-	localContact  *Contact
-	findContactCh chan Contact
+	receiveCh    chan CommData
+	sendCh       chan CommData
+	localContact *Contact
+	lookupChs    map[KademliaID]chan Contact
 
-	dataStore []string
+	dataStore map[KademliaID]string
 }
 
 type CommData struct {
@@ -27,6 +27,7 @@ type CommData struct {
 	RPCCommand string
 	Data       string
 	Response   bool
+	QueryID    KademliaID
 }
 
 // func (network *Network) Init() (<-chan CommData, chan<- CommData) {
@@ -35,8 +36,8 @@ func NetworkInit(localContact *Contact, routingTable *RoutingTable) *Network {
 	send := make(chan CommData, 10)
 	go Listen(receive)
 	go Broadcast(send)
-	contacts := make(chan Contact, 20)
-	var dataStore []string
+	contacts := make(map[KademliaID]chan Contact)
+	dataStore := make(map[KademliaID]string)
 	network := Network{receive, send, localContact, contacts, dataStore}
 	go network.Interpreter(receive, routingTable)
 	return &network
@@ -113,11 +114,13 @@ func (network *Network) Interpreter(commReceive chan CommData, routingTable *Rou
 			}
 		case FIND_CONTACT:
 			if !receivedCommData.Response {
-				network.SendFindContactResponse(&senderContact, routingTable, receivedCommData.Data)
+				network.SendFindContactResponse(&senderContact, routingTable, receivedCommData.Data, receivedCommData.QueryID)
 			} else {
-				kClosestContactsToContactedNode := ConvertDataToContactlist(receivedCommData.Data, *network.localContact)
+				kClosestContactsToContactedNode := ConvertDataToContactlist(receivedCommData.Data, *network.localContact, receivedCommData.QueryID)
 				for _, contact := range kClosestContactsToContactedNode {
-					network.findContactCh <- contact
+					if _, ok := network.lookupChs[receivedCommData.QueryID]; ok { // Check that the channel exists
+						network.lookupChs[receivedCommData.QueryID] <- contact
+					}
 					shouldPing, pingTo := routingTable.AddContact(contact)
 					if shouldPing { // Bucket is full, heartbeat ping oldest contact in the bucket
 						network.SendPingMessage(pingTo, false)
@@ -127,7 +130,7 @@ func (network *Network) Interpreter(commReceive chan CommData, routingTable *Rou
 		case FIND_DATA:
 			//TODO
 		case STORE:
-			network.StoreData(receivedCommData.Data)
+			network.StoreData(receivedCommData.Data, receivedCommData.QueryID)
 		default:
 			fmt.Println("Error. In the default case of Interpreter")
 			continue
@@ -169,12 +172,13 @@ func (network *Network) SendPingMessage(contact *Contact, response bool) {
 		PING,
 		"",
 		response,
+		*NewKademliaID("0000000000000000000000000000000000000000"),
 	}
 
 	network.sendCh <- pingData
 }
 
-func (network *Network) SendFindContactMessage(contact *Contact, findContactData string) {
+func (network *Network) SendFindContactMessage(contact *Contact, findContactID KademliaID) {
 	findContactMessage := CommData{
 		network.localContact.Address,
 		contact.Address,
@@ -182,13 +186,14 @@ func (network *Network) SendFindContactMessage(contact *Contact, findContactData
 		port,
 		port,
 		FIND_CONTACT,
-		findContactData,
+		"",
 		false,
+		findContactID,
 	}
 	network.sendCh <- findContactMessage
 }
 
-func (network *Network) SendFindContactResponse(contact *Contact, routingTable *RoutingTable, receivedCommData string) {
+func (network *Network) SendFindContactResponse(contact *Contact, routingTable *RoutingTable, receivedCommData string, queryID KademliaID) {
 	kademliaIDtoLookup := NewKademliaID(receivedCommData)
 	kClosestContacts := routingTable.FindClosestContacts(kademliaIDtoLookup, bucketSize)
 
@@ -206,15 +211,25 @@ func (network *Network) SendFindContactResponse(contact *Contact, routingTable *
 		FIND_CONTACT,
 		kClosestContactData,
 		true,
+		queryID,
 	}
 	network.sendCh <- findContactResponse
+}
+
+func (network *Network) CreateNewFindContactChannel(queryID KademliaID) {
+	lookupChannel := make(chan Contact, 10)
+	network.lookupChs[queryID] = lookupChannel
+}
+
+func (network *Network) RemoveFindContactChannel(queryID KademliaID) {
+	delete(network.lookupChs, queryID)
 }
 
 func (network *Network) SendFindDataMessage(hash string) {
 	// TODO
 }
 
-func (network *Network) SendStoreMessage(data []byte, contact Contact) {
+func (network *Network) SendStoreMessage(data []byte, contact Contact, queryID KademliaID) {
 	storeMessage := CommData{
 		network.localContact.Address,
 		contact.Address,
@@ -224,16 +239,17 @@ func (network *Network) SendStoreMessage(data []byte, contact Contact) {
 		STORE,
 		string(data),
 		false,
+		queryID,
 	}
 
 	network.sendCh <- storeMessage
 }
 
-func (network *Network) StoreData(data string) {
-	network.dataStore = append(network.dataStore, data)
+func (network *Network) StoreData(data string, queryID KademliaID) {
+	network.dataStore[queryID] = data
 }
 
-func ConvertDataToContactlist(recievedCommData string, localContact Contact) (contacts []Contact) {
+func ConvertDataToContactlist(recievedCommData string, localContact Contact, queryID KademliaID) (contacts []Contact) {
 	contactStrings := strings.Split(recievedCommData, ";")
 	contactStrings = contactStrings[:len(contactStrings)-1]
 
@@ -242,7 +258,7 @@ func ConvertDataToContactlist(recievedCommData string, localContact Contact) (co
 		kademliaID := NewKademliaID(contactElements[0])
 		fmt.Println("The kademliaId we found was ", kademliaID)
 		address := contactElements[1]
-		distance := kademliaID.CalcDistance(*localContact.ID) // This distance isn't used
+		distance := kademliaID.CalcDistance(queryID)
 
 		contact := Contact{kademliaID, address, distance}
 

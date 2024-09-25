@@ -36,31 +36,34 @@ func (kademlia *Kademlia) Ping(target *Contact) {
 }
 
 func (kademlia *Kademlia) LookupContact(target *KademliaID) []Contact {
+	kademlia.network.CreateNewFindContactChannel(*target)
+
 	nClosestContacts := kademlia.routingTable.FindClosestContacts(target, concurrencyParameter)
 
 	for _, contact := range nClosestContacts { //Kontakta alfa närmsta kontakterna till målet
-		kademlia.network.SendFindContactMessage(&contact, target.String())
+		kademlia.network.SendFindContactMessage(&contact, *target)
 	}
 
 	return kademlia.ProcessContactLookupReturns(target)
 }
 
 func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) []Contact {
+
 	time.Sleep(3 * time.Second)
 	var closestNodeSeen Contact
 	var contactList []Contact
 	for { //Ta emot svaren (från de som hunnit svara)
-		if len(Kademlia.network.findContactCh) == 0 {
+		if len(Kademlia.network.lookupChs[*target]) == 0 {
 			break
 		}
-		returnedContact := <-Kademlia.network.findContactCh
+		returnedContact := <-Kademlia.network.lookupChs[*target]
 		if !IsContactAlreadyInList(contactList, returnedContact) {
 			contactList = append(contactList, returnedContact)
 		}
 
 	}
 	sort.Slice(contactList, func(i, j int) bool {
-		return contactList[i].distance.CalcDistance(*target).Less(contactList[j].distance.CalcDistance(*target))
+		return contactList[i].distance.Less(contactList[j].distance)
 	})
 	closestNodeSeen = contactList[0]
 
@@ -71,20 +74,20 @@ func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) []Cont
 		}
 		closestNodeSeen = newClosestNode
 		for i := 0; i < concurrencyParameter; i++ { // Kontakta alfa nya närmsta
-			Kademlia.network.SendFindContactMessage(&contactList[i], target.String())
+			Kademlia.network.SendFindContactMessage(&contactList[i], *target)
 		}
 		time.Sleep(2 * time.Second)
 		for { // Ta emot svaren från alfa nya närmsta
-			if len(Kademlia.network.findContactCh) == 0 {
+			if len(Kademlia.network.lookupChs[*target]) == 0 {
 				break
 			}
-			returnedContact := <-Kademlia.network.findContactCh
+			returnedContact := <-Kademlia.network.lookupChs[*target]
 			if !IsContactAlreadyInList(contactList, returnedContact) {
 				contactList = append(contactList, returnedContact)
 			}
 		}
 		sort.Slice(contactList, func(i, j int) bool {
-			return contactList[i].distance.CalcDistance(*target).Less(contactList[j].distance.CalcDistance(*target))
+			return contactList[i].distance.Less(contactList[j].distance)
 		})
 		newClosestNode = contactList[0]
 	}
@@ -92,26 +95,26 @@ func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) []Cont
 	// Skicka och ta emot svaren från k närmsta till målet som är okontaktade
 	if len(contactList) >= bucketSize {
 		for i := concurrencyParameter; i < bucketSize; i++ {
-			Kademlia.network.SendFindContactMessage(&contactList[i], target.String())
+			Kademlia.network.SendFindContactMessage(&contactList[i], *target)
 		}
 	} else {
 		for i := concurrencyParameter; i < len(contactList); i++ {
-			Kademlia.network.SendFindContactMessage(&contactList[i], target.String())
+			Kademlia.network.SendFindContactMessage(&contactList[i], *target)
 		}
 	}
 
 	time.Sleep(2 * time.Second)
 	for {
-		if len(Kademlia.network.findContactCh) == 0 {
+		if len(Kademlia.network.lookupChs[*target]) == 0 {
 			break
 		}
-		returnedContact := <-Kademlia.network.findContactCh
+		returnedContact := <-Kademlia.network.lookupChs[*target]
 		if !IsContactAlreadyInList(contactList, returnedContact) {
 			contactList = append(contactList, returnedContact)
 		}
 	}
 	sort.Slice(contactList, func(i, j int) bool {
-		return contactList[i].distance.CalcDistance(*target).Less(contactList[j].distance.CalcDistance(*target))
+		return contactList[i].distance.Less(contactList[j].distance)
 	})
 
 	if len(contactList) > bucketSize {
@@ -145,6 +148,6 @@ func (kademlia *Kademlia) Store(data []byte) {
 	contactsToStoreDataIn := kademlia.LookupContact(kademliaIDofStoredDataHash)
 
 	for _, contact := range contactsToStoreDataIn {
-		kademlia.network.SendStoreMessage(data, contact)
+		kademlia.network.SendStoreMessage(data, contact, *contact.ID)
 	}
 }

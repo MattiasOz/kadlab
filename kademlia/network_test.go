@@ -11,7 +11,7 @@ func TestInit(t *testing.T) {
 	localContact := NewContact(localId, localIp)
 	localRouting := NewRoutingTable(localContact)
 	net := NetworkInit(&localContact, localRouting)
-	data := CommData{localIp, localIp, *localId, ":3000", ":3000", "com", "computer", false}
+	data := CommData{localIp, localIp, *localId, ":3000", ":3000", "com", "computer", false, *localId}
 	net.sendCh <- data
 	if data != <-net.receiveCh {
 		t.Error("The data did not match")
@@ -30,7 +30,7 @@ func TestConvertDataToContactlist(t *testing.T) {
 
 	testString := fmt.Sprintf("%s,%s;%s,%s;%s,%s;", testID1, testIP1, testID2, testIP2, testID3, testIP3)
 	fmt.Println("The test string is: ", testString)
-	testContacts := ConvertDataToContactlist(testString, localContact)
+	testContacts := ConvertDataToContactlist(testString, localContact, *localContact.ID)
 
 	contact1 := Contact{testID1, testIP1, testID1.CalcDistance(*localContact.ID)}
 	contact2 := Contact{testID2, testIP2, testID2.CalcDistance(*localContact.ID)}
@@ -60,11 +60,11 @@ func TestSendPingMessage(t *testing.T) {
 
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
-	contacts := make(chan Contact, 20)
-	network := Network{receive, send, &localContact, contacts, []string{}}
+	contacts := make(map[KademliaID]chan Contact)
+	network := Network{receive, send, &localContact, contacts, map[KademliaID]string{}}
 	network.SendPingMessage(&targetContact, false)
 	message := <-send
-	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", PING, "", false}
+	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", PING, "", false, *NewKademliaID("0000000000000000000000000000000000000000")}
 	if message != testCommData {
 		t.Errorf("TestSendPingMessage failed, got %v, expected %v", message, testCommData)
 	}
@@ -80,11 +80,12 @@ func TestSendFindContactMessage(t *testing.T) {
 
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
-	contacts := make(chan Contact, 20)
-	network := Network{receive, send, &localContact, contacts, []string{}}
-	network.SendFindContactMessage(&targetContact, network.localContact.Address)
+	contacts := make(map[KademliaID]chan Contact)
+	dataStore := make(map[KademliaID]string)
+	network := Network{receive, send, &localContact, contacts, dataStore}
+	network.SendFindContactMessage(&targetContact, *network.localContact.ID)
 	message := <-send
-	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, network.localContact.Address, false}
+	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, "", false, *(network.localContact.ID)}
 	if message != testCommData {
 		t.Errorf("TestSendFindContactMessage failed, got %v, expected %v", message, testCommData)
 	}
@@ -113,16 +114,17 @@ func TestSendFindContactResponse(t *testing.T) {
 
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
-	contacts := make(chan Contact, 20)
-	network := Network{receive, send, &localContact, contacts, []string{}}
-	network.SendFindContactResponse(&targetContact1, routingTable, targetContact1.ID.String())
+	contacts := make(map[KademliaID]chan Contact)
+	dataStore := make(map[KademliaID]string)
+	network := Network{receive, send, &localContact, contacts, dataStore}
+	network.SendFindContactResponse(&targetContact1, routingTable, targetContact1.ID.String(), *(network.localContact.ID))
 	message := <-send
 	orderedContacts := ""
 	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact1.ID, targetContact1.Address)
 	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact2.ID, targetContact2.Address)
 	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact3.ID, targetContact3.Address)
 
-	testCommData := CommData{network.localContact.Address, targetContact1.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, orderedContacts, true}
+	testCommData := CommData{network.localContact.Address, targetContact1.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, orderedContacts, true, *(network.localContact.ID)}
 	if message != testCommData {
 		t.Errorf("TestSendFindContactResponse failed, got %v, expected %v", message, testCommData)
 	}
