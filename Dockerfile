@@ -12,6 +12,7 @@ FROM alpine:latest
 # same directory, you need to ensure the image you build gets the name
 # "kadlab", which you do by using the following command:
 #
+
 WORKDIR /app
 # RUN apk add go
 # COPY kademlia ./kademlia
@@ -20,6 +21,7 @@ WORKDIR /app
 # ENTRYPOINT go run main.go
 # COPY --chmod=0755 d7024e ./d7024e
 COPY d7024e ./d7024e
+COPY cli/cli ./cli
 # COPY . ./
 # RUN go build
 ENTRYPOINT ./d7024e

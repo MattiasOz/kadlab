@@ -24,6 +24,8 @@ func Init() Kademlia {
 
 	network := NetworkInit(&localContact, routingTable)
 
+    Cli_init()
+
 	res := Kademlia{
 		routingTable: routingTable,
 		network:      network,
