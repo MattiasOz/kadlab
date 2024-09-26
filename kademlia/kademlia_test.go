@@ -11,7 +11,7 @@ func TestProcessContactLookupReturns(t *testing.T) {
 	targetContact := NewContact(targetID, targetAdr)
 
 	kadTest := Init()
-	kadTest.network.CreateNewFindContactChannel(*targetContact.ID)
+	kadTest.network.CreateNewLookupChannel(*targetContact.ID)
 	dataChan := kadTest.network.lookupChs[*targetContact.ID]
 	go dataspoofer(dataChan)
 

@@ -16,6 +16,7 @@ type Network struct {
 	lookupChs    map[KademliaID]chan Contact
 
 	dataStore map[KademliaID]string
+	dataCh    chan string
 }
 
 type CommData struct {
@@ -38,7 +39,8 @@ func NetworkInit(localContact *Contact, routingTable *RoutingTable) *Network {
 	go Broadcast(send)
 	contacts := make(map[KademliaID]chan Contact)
 	dataStore := make(map[KademliaID]string)
-	network := Network{receive, send, localContact, contacts, dataStore}
+	dataCh := make(chan string, 5)
+	network := Network{receive, send, localContact, contacts, dataStore, dataCh}
 	go network.Interpreter(receive, routingTable)
 	return &network
 	// return receive, send
@@ -86,6 +88,9 @@ func Broadcast(commSend chan CommData) {
 		}
 
 		localAddress, err := net.ResolveUDPAddr("udp", GetLocalIP())
+		if err != nil {
+			fmt.Println("ERROR: ", err)
+		}
 		connection, err := net.DialUDP("udp", localAddress, broadcastAddress)
 		if err != nil {
 			fmt.Println("ERROR: ", err)
@@ -128,7 +133,24 @@ func (network *Network) Interpreter(commReceive chan CommData, routingTable *Rou
 				}
 			}
 		case FIND_DATA:
-			//TODO
+			if !receivedCommData.Response {
+				network.SendFindDataResponse(&senderContact, routingTable, receivedCommData.Data, receivedCommData.QueryID)
+			} else {
+				if string(receivedCommData.Data[0]) == "!" { // "!" in the beginning of the data string indicates the data has been found
+					network.dataCh <- receivedCommData.Data[1:]
+				} else {
+					kClosestContactsToContactedNode := ConvertDataToContactlist(receivedCommData.Data, *network.localContact, receivedCommData.QueryID)
+					for _, contact := range kClosestContactsToContactedNode {
+						if _, ok := network.lookupChs[receivedCommData.QueryID]; ok { // Check that the channel exists
+							network.lookupChs[receivedCommData.QueryID] <- contact
+						}
+						shouldPing, pingTo := routingTable.AddContact(contact)
+						if shouldPing { // Bucket is full, heartbeat ping oldest contact in the bucket
+							network.SendPingMessage(pingTo, false)
+						}
+					}
+				}
+			}
 		case STORE:
 			network.StoreData(receivedCommData.Data, receivedCommData.QueryID)
 		default:
@@ -194,8 +216,8 @@ func (network *Network) SendFindContactMessage(contact *Contact, findContactID K
 }
 
 func (network *Network) SendFindContactResponse(contact *Contact, routingTable *RoutingTable, receivedCommData string, queryID KademliaID) {
-	kademliaIDtoLookup := NewKademliaID(receivedCommData)
-	kClosestContacts := routingTable.FindClosestContacts(kademliaIDtoLookup, bucketSize)
+	kademliaIDtoLookup := queryID
+	kClosestContacts := routingTable.FindClosestContacts(&kademliaIDtoLookup, bucketSize)
 
 	kClosestContactData := ""
 	for _, contact := range kClosestContacts {
@@ -216,7 +238,7 @@ func (network *Network) SendFindContactResponse(contact *Contact, routingTable *
 	network.sendCh <- findContactResponse
 }
 
-func (network *Network) CreateNewFindContactChannel(queryID KademliaID) {
+func (network *Network) CreateNewLookupChannel(queryID KademliaID) {
 	lookupChannel := make(chan Contact, 10)
 	network.lookupChs[queryID] = lookupChannel
 }
@@ -225,8 +247,46 @@ func (network *Network) RemoveFindContactChannel(queryID KademliaID) {
 	delete(network.lookupChs, queryID)
 }
 
-func (network *Network) SendFindDataMessage(hash string) {
-	// TODO
+func (network *Network) SendFindDataMessage(contact Contact, hash KademliaID) {
+	findContactMessage := CommData{
+		network.localContact.Address,
+		contact.Address,
+		*(network.localContact.ID),
+		port,
+		port,
+		FIND_DATA,
+		"",
+		false,
+		hash,
+	}
+	network.sendCh <- findContactMessage
+}
+
+func (network *Network) SendFindDataResponse(contact *Contact, routingTable *RoutingTable, receivedCommData string, queryID KademliaID) {
+	kClosestContactOrData := "" // Det här är inte bra enligt någon kodstandard, men funka kommer det
+	if data, exists := network.dataStore[queryID]; exists {
+		kClosestContactOrData = "!" + data
+	} else {
+		kademliaIDtoLookup := queryID
+		kClosestContacts := routingTable.FindClosestContacts(&kademliaIDtoLookup, bucketSize)
+
+		for _, contact := range kClosestContacts {
+			kClosestContactOrData = kClosestContactOrData + fmt.Sprintf("%s,%s;", contact.ID, contact.Address)
+		}
+	}
+
+	findDataResponse := CommData{
+		network.localContact.Address,
+		contact.Address,
+		*(network.localContact.ID),
+		port,
+		port,
+		FIND_CONTACT,
+		kClosestContactOrData,
+		true,
+		queryID,
+	}
+	network.sendCh <- findDataResponse
 }
 
 func (network *Network) SendStoreMessage(data []byte, contact Contact, queryID KademliaID) {

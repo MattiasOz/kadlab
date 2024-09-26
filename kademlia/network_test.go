@@ -61,7 +61,8 @@ func TestSendPingMessage(t *testing.T) {
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
 	contacts := make(map[KademliaID]chan Contact)
-	network := Network{receive, send, &localContact, contacts, map[KademliaID]string{}}
+	dataCh := make(chan string, 5)
+	network := Network{receive, send, &localContact, contacts, map[KademliaID]string{}, dataCh}
 	network.SendPingMessage(&targetContact, false)
 	message := <-send
 	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", PING, "", false, *NewKademliaID("0000000000000000000000000000000000000000")}
@@ -82,7 +83,8 @@ func TestSendFindContactMessage(t *testing.T) {
 	send := make(chan CommData, 10)
 	contacts := make(map[KademliaID]chan Contact)
 	dataStore := make(map[KademliaID]string)
-	network := Network{receive, send, &localContact, contacts, dataStore}
+	dataCh := make(chan string, 5)
+	network := Network{receive, send, &localContact, contacts, dataStore, dataCh}
 	network.SendFindContactMessage(&targetContact, *network.localContact.ID)
 	message := <-send
 	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, "", false, *(network.localContact.ID)}
@@ -116,13 +118,14 @@ func TestSendFindContactResponse(t *testing.T) {
 	send := make(chan CommData, 10)
 	contacts := make(map[KademliaID]chan Contact)
 	dataStore := make(map[KademliaID]string)
-	network := Network{receive, send, &localContact, contacts, dataStore}
+	dataCh := make(chan string, 5)
+	network := Network{receive, send, &localContact, contacts, dataStore, dataCh}
 	network.SendFindContactResponse(&targetContact1, routingTable, targetContact1.ID.String(), *(network.localContact.ID))
 	message := <-send
 	orderedContacts := ""
 	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact1.ID, targetContact1.Address)
-	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact2.ID, targetContact2.Address)
 	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact3.ID, targetContact3.Address)
+	orderedContacts = orderedContacts + fmt.Sprintf("%s,%s;", targetContact2.ID, targetContact2.Address)
 
 	testCommData := CommData{network.localContact.Address, targetContact1.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, orderedContacts, true, *(network.localContact.ID)}
 	if message != testCommData {
