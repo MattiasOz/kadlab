@@ -119,6 +119,8 @@ func (Kademlia *Kademlia) ProcessContactLookupReturns(target *KademliaID) []Cont
 		return contactList[i].distance.Less(contactList[j].distance)
 	})
 
+	Kademlia.network.RemoveLookupChannel(*target)
+
 	if len(contactList) > bucketSize {
 		return contactList[:bucketSize]
 	} else {
@@ -142,6 +144,7 @@ func IsContactAlreadyInList(contactList []Contact, newContact Contact) bool {
 func (Kademlia *Kademlia) LookupData(hash string) string {
 	target := NewKademliaID(hash)
 	Kademlia.network.CreateNewLookupChannel(*target)
+	Kademlia.network.CreateNewDataChannel(*target)
 
 	nClosestContacts := Kademlia.routingTable.FindClosestContacts(target, concurrencyParameter)
 
@@ -149,12 +152,22 @@ func (Kademlia *Kademlia) LookupData(hash string) string {
 		Kademlia.network.SendFindDataMessage(contact, *target)
 	}
 
+	returnedData := Kademlia.ProcessDataLookupReturns(target)
+
+	Kademlia.network.RemoveLookupChannel(*target)
+	Kademlia.network.RemoveDataChannel(*target)
+
+	return returnedData
+
+}
+
+func (Kademlia *Kademlia) ProcessDataLookupReturns(target *KademliaID) string {
 	time.Sleep(3 * time.Second)
 	var closestNodeSeen Contact
 	var contactList []Contact
 	for { //Ta emot svaren (från de som hunnit svara)
-		if len(Kademlia.network.dataCh) > 0 { // När datan hittas returnerar vi direkt
-			return <-Kademlia.network.dataCh
+		if len(Kademlia.network.dataChs[*target]) > 0 { // När datan hittas returnerar vi direkt
+			return <-Kademlia.network.dataChs[*target]
 		}
 		if len(Kademlia.network.lookupChs[*target]) == 0 {
 			break
@@ -181,8 +194,8 @@ func (Kademlia *Kademlia) LookupData(hash string) string {
 		}
 		time.Sleep(2 * time.Second)
 		for { // Ta emot svaren från alfa nya närmsta
-			if len(Kademlia.network.dataCh) > 0 { // När datan hittas returnerar vi direkt
-				return <-Kademlia.network.dataCh
+			if len(Kademlia.network.dataChs[*target]) > 0 { // När datan hittas returnerar vi direkt
+				return <-Kademlia.network.dataChs[*target]
 			}
 			if len(Kademlia.network.lookupChs[*target]) == 0 {
 				break
@@ -210,8 +223,8 @@ func (Kademlia *Kademlia) LookupData(hash string) string {
 	}
 
 	time.Sleep(2 * time.Second)
-	if len(Kademlia.network.dataCh) > 0 { // Om datan nu har hittats returnerar vi den, annars finns den nog inte
-		return <-Kademlia.network.dataCh
+	if len(Kademlia.network.dataChs[*target]) > 0 { // Om datan nu har hittats returnerar vi den, annars finns den nog inte
+		return <-Kademlia.network.dataChs[*target]
 	}
 
 	return ""

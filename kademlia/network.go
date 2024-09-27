@@ -16,7 +16,7 @@ type Network struct {
 	lookupChs    map[KademliaID]chan Contact
 
 	dataStore map[KademliaID]string
-	dataCh    chan string
+	dataChs   map[KademliaID]chan string
 }
 
 type CommData struct {
@@ -39,8 +39,8 @@ func NetworkInit(localContact *Contact, routingTable *RoutingTable) *Network {
 	go Broadcast(send)
 	contacts := make(map[KademliaID]chan Contact)
 	dataStore := make(map[KademliaID]string)
-	dataCh := make(chan string, 5)
-	network := Network{receive, send, localContact, contacts, dataStore, dataCh}
+	dataChs := make(map[KademliaID]chan string)
+	network := Network{receive, send, localContact, contacts, dataStore, dataChs}
 	go network.Interpreter(receive, routingTable)
 	return &network
 	// return receive, send
@@ -137,7 +137,9 @@ func (network *Network) Interpreter(commReceive chan CommData, routingTable *Rou
 				network.SendFindDataResponse(&senderContact, routingTable, receivedCommData.Data, receivedCommData.QueryID)
 			} else {
 				if string(receivedCommData.Data[0]) == "!" { // "!" in the beginning of the data string indicates the data has been found
-					network.dataCh <- receivedCommData.Data[1:]
+					if _, ok := network.dataChs[receivedCommData.QueryID]; ok { // Check that the channel exists
+						network.dataChs[receivedCommData.QueryID] <- receivedCommData.Data[1:]
+					}
 				} else {
 					kClosestContactsToContactedNode := ConvertDataToContactlist(receivedCommData.Data, *network.localContact, receivedCommData.QueryID)
 					for _, contact := range kClosestContactsToContactedNode {
@@ -243,8 +245,17 @@ func (network *Network) CreateNewLookupChannel(queryID KademliaID) {
 	network.lookupChs[queryID] = lookupChannel
 }
 
-func (network *Network) RemoveFindContactChannel(queryID KademliaID) {
+func (network *Network) RemoveLookupChannel(queryID KademliaID) {
 	delete(network.lookupChs, queryID)
+}
+
+func (network *Network) CreateNewDataChannel(queryID KademliaID) {
+	dataChannel := make(chan string, 5)
+	network.dataChs[queryID] = dataChannel
+}
+
+func (network *Network) RemoveDataChannel(queryID KademliaID) {
+	delete(network.dataChs, queryID)
 }
 
 func (network *Network) SendFindDataMessage(contact Contact, hash KademliaID) {
