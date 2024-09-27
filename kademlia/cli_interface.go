@@ -1,12 +1,11 @@
 package kademlia
 
 import (
-    "net"
-    "fmt"
-    "encoding/json"
+	"encoding/json"
+	"fmt"
+	"net"
+	"os"
 )
-
-const local_port = ":80"
 
 type Cli_command struct {
     RPC_command string
@@ -19,27 +18,48 @@ func Cli_init() {
 }
 
 func cli_listener(resCh chan Cli_command){
-	localAddress, err := net.ResolveUDPAddr("udp", local_port)
-	if err != nil {
-		fmt.Println("cannot resolve UDPAddr: ", err)
-	}
-	connection, err := net.ListenUDP("udp", localAddress)
-	if err != nil {
-		fmt.Println("cannot listenUDP: ", err)
-	}
-	defer connection.Close()
-	for {
-		var message Cli_command
-		buffer := make([]byte, 4096)
-		length, _, err := connection.ReadFromUDP(buffer)
-		if err != nil {
-			fmt.Println("cannot ReadFromUDP: ", err)
-		}
-		buffer = buffer[:length]
-		err = json.Unmarshal(buffer, &message)
-		if err != nil {
-			fmt.Println("cannot unmarshal: ", err)
-		}
-		fmt.Println("THIS MESSGE IS Msg: ", message.RPC_command, message.Content)
-	}
+    fmt.Println("STARTED cli_listener")
+    if err := os.RemoveAll(SOCKET_PATH); err != nil {
+        fmt.Println("Error, clearing socket", err)
+    }   
+
+    ln, err := net.Listen("unix", SOCKET_PATH)
+    if err != nil {
+        fmt.Println("Error listening to socker", err)
+    }
+    defer ln.Close()
+
+    fmt.Println("Listening to", SOCKET_PATH)
+
+    for {
+        conn, err := ln.Accept()
+        fmt.Println("Received a package")
+        if err != nil {
+            fmt.Println("Error accepting package", err)
+            continue
+        }
+        defer conn.Close()
+
+        buf := make([]byte, 1024)
+        length, err := conn.Read(buf)
+        if err != nil {
+            fmt.Println("Error reading from package", err)
+            continue
+        }
+        buf = buf[:length]
+        var command Cli_command
+        err = json.Unmarshal(buf, &command)
+        if err != nil {
+            fmt.Println("Error unmarshaling", err)
+            continue
+        }
+        go handCliInput(command, conn)
+    }
+}
+
+
+func handCliInput(command Cli_command, conn net.Conn) {
+    defer conn.Close()
+    fmt.Println("Command was", command)
+    conn.Write([]byte("M1911a1"))
 }
