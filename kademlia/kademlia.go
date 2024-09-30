@@ -166,8 +166,15 @@ func (Kademlia *Kademlia) ProcessDataLookupReturns(target *KademliaID) string {
 	var closestNodeSeen Contact
 	var contactList []Contact
 	for { //Ta emot svaren (från de som hunnit svara)
-		if len(Kademlia.network.dataChs[*target]) > 0 { // När datan hittas returnerar vi direkt
-			return <-Kademlia.network.dataChs[*target]
+		if len(Kademlia.network.dataChs[*target]) > 0 { // När datan hittas returnerar vi direkt och sparar i närmsta nod som inte hade datan
+			foundData := <-Kademlia.network.dataChs[*target]
+			if len(contactList) > 0 {
+				sort.Slice(contactList, func(i, j int) bool {
+					return contactList[i].distance.Less(contactList[j].distance)
+				})
+				Kademlia.network.SendStoreMessage([]byte(foundData), contactList[0], *target)
+			}
+			return foundData
 		}
 		if len(Kademlia.network.lookupChs[*target]) == 0 {
 			break
@@ -195,7 +202,12 @@ func (Kademlia *Kademlia) ProcessDataLookupReturns(target *KademliaID) string {
 		time.Sleep(2 * time.Second)
 		for { // Ta emot svaren från alfa nya närmsta
 			if len(Kademlia.network.dataChs[*target]) > 0 { // När datan hittas returnerar vi direkt
-				return <-Kademlia.network.dataChs[*target]
+				foundData := <-Kademlia.network.dataChs[*target]
+				sort.Slice(contactList, func(i, j int) bool {
+					return contactList[i].distance.Less(contactList[j].distance)
+				})
+				Kademlia.network.SendStoreMessage([]byte(foundData), contactList[0], *target)
+				return foundData
 			}
 			if len(Kademlia.network.lookupChs[*target]) == 0 {
 				break
@@ -224,7 +236,12 @@ func (Kademlia *Kademlia) ProcessDataLookupReturns(target *KademliaID) string {
 
 	time.Sleep(2 * time.Second)
 	if len(Kademlia.network.dataChs[*target]) > 0 { // Om datan nu har hittats returnerar vi den, annars finns den nog inte
-		return <-Kademlia.network.dataChs[*target]
+		foundData := <-Kademlia.network.dataChs[*target]
+		sort.Slice(contactList, func(i, j int) bool {
+			return contactList[i].distance.Less(contactList[j].distance)
+		})
+		Kademlia.network.SendStoreMessage([]byte(foundData), contactList[0], *target)
+		return foundData
 	}
 
 	return ""
