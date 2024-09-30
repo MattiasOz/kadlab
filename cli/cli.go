@@ -6,15 +6,9 @@ import (
 	"net"
 	"os"
 	"strings"
+    _"flag"
     "d7024e/kademlia"
 )
-
-const port = ":80"
-
-type cli_command struct {
-    rpc_command string
-    content string
-}
 
 func main() {
     args := os.Args[1:]
@@ -64,25 +58,6 @@ func is_enough_args(args []string, length int) bool {
     return true
 }
 
-func GetLocalIP() string {
-	var localIP string
-	addr, err := net.InterfaceAddrs()
-	if err != nil {
-		fmt.Printf("GetLocalIP in communication failed")
-		return "localhost"
-	}
-
-	for _, val := range addr {
-		if ip, ok := val.(*net.IPNet); ok && !ip.IP.IsLoopback() {
-			if ip.IP.To4() != nil {
-				localIP = ip.IP.String()
-			}
-		}
-	}
-
-	return localIP
-}
-
 func ping(ip string) {
     message := kademlia.Cli_command {
         RPC_command: kademlia.PING,
@@ -119,22 +94,32 @@ func store(args []string) {
 }
 
 func send_message(ip string, message kademlia.Cli_command) {
-    broadcastAddress, err := net.ResolveUDPAddr("udp", ip+port)
+    conn, err := net.Dial("unix", kademlia.SOCKET_PATH)
     if err != nil {
-        fmt.Println("ERROR: ", err)
+        fmt.Println("Couldn't dial socker", err)
+    }
+    defer conn.Close()
+
+    msg, err := json.Marshal(message)
+    if err != nil {
+        fmt.Println("Error marshalling:", err)
+        return
+    }
+    conn.Write(msg)
+
+    buf := make([]byte, 1024)
+    length, err := conn.Read(buf)
+    if err != nil {
+        fmt.Println("Error reading:", err)
+    }
+    buf = buf[:length]
+
+    var resp string
+    err = json.Unmarshal(buf, &resp)
+    if err != nil {
+        fmt.Println("Error:", err)
     }
 
-    localAddress, err := net.ResolveUDPAddr("udp", GetLocalIP())
-    connection, err := net.DialUDP("udp", localAddress, broadcastAddress)
-    if err != nil {
-        fmt.Println("ERROR: ", err)
-    }
-
-    convMsg, err := json.Marshal(message)
-    if err != nil {
-        fmt.Println("ERROR: ", err)
-    }
-    connection.Write(convMsg)
-
-    connection.Close()
+    fmt.Println("Response was", resp)
+    fmt.Println("Response was", string(buf[:length]))
 }
