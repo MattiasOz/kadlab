@@ -93,6 +93,29 @@ func TestSendFindContactMessage(t *testing.T) {
 	}
 }
 
+func TestSendStoreMessage(t *testing.T) {
+	id := NewKademliaID("FFFFFFFF00000000000000000000000000000000")
+	localContact := NewContact(id, "localhost:8000")
+	targetContact := NewContact(
+		NewRandomKademliaID(),
+		"172.18.0.3",
+	)
+
+	receive := make(chan CommData, 10)
+	send := make(chan CommData, 10)
+	contacts := make(map[KademliaID]chan Contact)
+	dataStore := make(map[KademliaID]string)
+	dataChs := make(map[KademliaID]chan string)
+	network := Network{receive, send, &localContact, contacts, dataStore, dataChs}
+	data := []byte("thisstringisatest")
+	network.SendStoreMessage(data, targetContact, *network.localContact.ID)
+	message := <-send
+	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", STORE, string(data), false, *(network.localContact.ID)}
+	if message != testCommData {
+		t.Errorf("TestSendStoreMessage failed, got %v, expected %v", message, testCommData)
+	}
+}
+
 func TestSendFindContactResponse(t *testing.T) {
 	id := NewKademliaID("FFFFFFFF00000000000000000000000000000000")
 	localContact := NewContact(id, "localhost:8000")
