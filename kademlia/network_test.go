@@ -13,7 +13,7 @@ func TestInit(t *testing.T) {
 	net := NetworkInit(&localContact, localRouting)
 	data := CommData{localIp, localIp, *localId, ":3000", ":3000", "com", "computer", false, *localId}
 	net.sendCh <- data
-	if data != <-net.receiveCh {
+	if data != <-net.sendCh {
 		t.Error("The data did not match")
 	}
 }
@@ -153,6 +153,22 @@ func TestSendFindContactResponse(t *testing.T) {
 	testCommData := CommData{network.localContact.Address, targetContact1.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, orderedContacts, true, *(network.localContact.ID)}
 	if message != testCommData {
 		t.Errorf("TestSendFindContactResponse failed, got %v, expected %v", message, testCommData)
+	}
+}
+
+func TestStoreData(t *testing.T) {
+	itemID := NewKademliaID("FFFFFFFF00000000000000000000000000000000")
+	itemValue := "Thisisatestitem"
+
+	localId := NewRandomKademliaID()
+	localIp := GetLocalIP()
+	localContact := NewContact(localId, localIp)
+	localRouting := NewRoutingTable(localContact)
+	net := NetworkInit(&localContact, localRouting)
+
+	net.StoreData(itemValue, *itemID)
+	if net.dataStore[*itemID] != itemValue {
+		t.Errorf("TestStoreData failed, got %v, expected %v", net.dataStore[*itemID], itemValue)
 	}
 }
 
