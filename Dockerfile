@@ -1,5 +1,5 @@
-FROM alpine:latest
-# FROM archlinux
+# FROM alpine:latest
+FROM archlinux:base-20240929.0.266368
 #
 # RUN pacman -Syu --noconfirm && pacman -S go --noconfirm
 # Add the commands needed to put your compiled go binary in the container and

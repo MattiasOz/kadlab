@@ -10,29 +10,32 @@ import (
 )
 
 func main() {
-	fmt.Println("Pretending to run the kademlia app...")
-	// Using stuff from the kademlia package here. Something like...
-	id := kademlia.NewKademliaID("FFFFFFFF00000000000000000000000000000000")
-	contact := kademlia.NewContact(id, "localhost:8000")
-	fmt.Println(contact.String())
-	fmt.Printf("%v\n", contact)
+	fmt.Println("Running the kademlia app...")
 
-	// init
-	// _, sendCh := kademlia.Init()
-	targetContact := kademlia.NewContact(
-		kademlia.NewRandomKademliaID(),
-		"172.18.0.3",
-	)
 	kadlab := kademlia.Init()
-	bootstrapNode := kademlia.NewContact(kademlia.NewKademliaID("FFFFFFFF00000000000000000000000000000000"), "172.18.0.3")
-	kadlab.Ping(&bootstrapNode)
+
 	if kademlia.GetLocalIP() != "172.18.0.3" {
 		time.Sleep((time.Duration(5 + rand.Intn(10))) * time.Second)
+		bootstrapNode := kademlia.NewContact(kademlia.NewKademliaID("FFFFFFFF00000000000000000000000000000000"), "172.18.0.3")
+		kadlab.Ping(&bootstrapNode)
+		time.Sleep((time.Duration(5 + rand.Intn(10))) * time.Second)
 		kadlab.LookupSelf()
+	} else {
+		bootstrapNode := kademlia.NewContact(kademlia.NewKademliaID("FFFFFFFF00000000000000000000000000000000"), "172.18.0.3")
+		kadlab.Ping(&bootstrapNode)
 	}
+	fmt.Println("\033[32mStartup is complete\033[0m")
+
+	exit_ch := make(chan bool)
+	kademlia.Cli_Start(kadlab, exit_ch)
 
 	for {
-		time.Sleep(10 * time.Second)
-		kadlab.Ping(&targetContact)
+		select {
+		case <-exit_ch:
+			fmt.Println("Shutting down")
+			return
+		case <-time.After(1 * time.Second):
+			continue
+		}
 	}
 }

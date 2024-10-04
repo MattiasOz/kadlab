@@ -3,6 +3,7 @@ package kademlia
 import (
 	"fmt"
 	"sort"
+	"sync"
 )
 
 // Contact definition
@@ -11,17 +12,20 @@ type Contact struct {
 	ID       *KademliaID
 	Address  string
 	distance *KademliaID
+	lock     sync.Mutex
 }
 
 // NewContact returns a new instance of a Contact
 func NewContact(id *KademliaID, address string) Contact {
-	return Contact{id, address, nil}
+	return Contact{id, address, nil, sync.Mutex{}}
 }
 
 // CalcDistance calculates the distance to the target and
 // fills the contacts distance field
 func (contact *Contact) CalcDistance(target *KademliaID) {
+	contact.lock.Lock()
 	contact.distance = contact.ID.CalcDistance(*target)
+	contact.lock.Unlock()
 }
 
 // Less returns true if contact.distance < otherContact.distance

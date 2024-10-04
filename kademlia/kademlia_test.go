@@ -1,6 +1,7 @@
 package kademlia
 
 import (
+	"sync"
 	"testing"
 	"time"
 )
@@ -51,13 +52,13 @@ func TestProcessContactLookupReturns(t *testing.T) {
 func dataspoofer(datachannel chan Contact) {
 	id1 := NewKademliaID("FFFFFFFF00000000000000000000FF0000000000")
 	adr1 := "172.0.0.4"
-	cont1 := Contact{id1, adr1, id1}
+	cont1 := Contact{id1, adr1, id1, sync.Mutex{}}
 	id2 := NewKademliaID("FFFFFFFF0000000000000000000000FF00000000")
 	adr2 := "172.0.0.5"
-	cont2 := Contact{id2, adr2, id2}
+	cont2 := Contact{id2, adr2, id2, sync.Mutex{}}
 	id3 := NewKademliaID("FFFFFFFF000000000000000000000000FF000000")
 	adr3 := "172.0.0.6"
-	cont3 := Contact{id3, adr3, id3}
+	cont3 := Contact{id3, adr3, id3, sync.Mutex{}}
 	datachannel <- cont1
 	datachannel <- cont2
 	datachannel <- cont3
@@ -65,13 +66,13 @@ func dataspoofer(datachannel chan Contact) {
 	time.Sleep(4 * time.Second)
 	id4 := NewKademliaID("FFFFFFFF00000000000000000000000000FF0000")
 	adr4 := "172.0.0.7"
-	cont4 := Contact{id4, adr4, id4}
+	cont4 := Contact{id4, adr4, id4, sync.Mutex{}}
 	id5 := NewKademliaID("FFFFFFFF0000000000000000000000000000FF00")
 	adr5 := "172.0.0.8"
-	cont5 := Contact{id5, adr5, id5}
+	cont5 := Contact{id5, adr5, id5, sync.Mutex{}}
 	id6 := NewKademliaID("FFFFFFFF000000000000000000000000000000FF")
 	adr6 := "172.0.0.9"
-	cont6 := Contact{id6, adr6, id6}
+	cont6 := Contact{id6, adr6, id6, sync.Mutex{}}
 	datachannel <- cont4
 	datachannel <- cont5
 	datachannel <- cont6
@@ -106,13 +107,13 @@ func TestProcessDataLookupReturns(t *testing.T) {
 func dataspoofer2(datachannel chan string, lookupchannel chan Contact) {
 	id1 := NewKademliaID("FFFFFFFF00000000000000000000FF0000000000")
 	adr1 := "172.0.0.4"
-	cont1 := Contact{id1, adr1, id1}
+	cont1 := Contact{id1, adr1, id1, sync.Mutex{}}
 	id2 := NewKademliaID("FFFFFFFF0000000000000000000000FF00000000")
 	adr2 := "172.0.0.5"
-	cont2 := Contact{id2, adr2, id2}
+	cont2 := Contact{id2, adr2, id2, sync.Mutex{}}
 	id3 := NewKademliaID("FFFFFFFF000000000000000000000000FF000000")
 	adr3 := "172.0.0.6"
-	cont3 := Contact{id3, adr3, id3}
+	cont3 := Contact{id3, adr3, id3, sync.Mutex{}}
 	lookupchannel <- cont1
 	lookupchannel <- cont2
 	lookupchannel <- cont3
@@ -120,13 +121,13 @@ func dataspoofer2(datachannel chan string, lookupchannel chan Contact) {
 	time.Sleep(4 * time.Second)
 	id4 := NewKademliaID("FFFFFFFF00000000000000000000000000FF0000")
 	adr4 := "172.0.0.7"
-	cont4 := Contact{id4, adr4, id4}
+	cont4 := Contact{id4, adr4, id4, sync.Mutex{}}
 	id5 := NewKademliaID("FFFFFFFF0000000000000000000000000000FF00")
 	adr5 := "172.0.0.8"
-	cont5 := Contact{id5, adr5, id5}
+	cont5 := Contact{id5, adr5, id5, sync.Mutex{}}
 	id6 := NewKademliaID("FFFFFFFF000000000000000000000000000000FF")
 	adr6 := "172.0.0.9"
-	cont6 := Contact{id6, adr6, id6}
+	cont6 := Contact{id6, adr6, id6, sync.Mutex{}}
 	lookupchannel <- cont4
 	lookupchannel <- cont5
 	lookupchannel <- cont6

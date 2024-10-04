@@ -5,18 +5,19 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 )
 
 const port = ":3000"
 
 type Network struct {
-	receiveCh    chan CommData
-	sendCh       chan CommData
-	localContact *Contact
-	lookupChs    map[KademliaID]chan Contact
-
-	dataStore map[KademliaID]string
-	dataChs   map[KademliaID]chan string
+	receiveCh     chan CommData
+	sendCh        chan CommData
+	localContact  *Contact
+	lookupChs     map[KademliaID]chan Contact
+	lookupChsLock sync.Mutex
+	dataStore     map[string]string
+	dataChs       map[KademliaID]chan string
 }
 
 type CommData struct {
@@ -38,9 +39,9 @@ func NetworkInit(localContact *Contact, routingTable *RoutingTable) *Network {
 	go Listen(receive)
 	go Broadcast(send)
 	contacts := make(map[KademliaID]chan Contact)
-	dataStore := make(map[KademliaID]string)
+	dataStore := make(map[string]string)
 	dataChs := make(map[KademliaID]chan string)
-	network := Network{receive, send, localContact, contacts, dataStore, dataChs}
+	network := Network{receive, send, localContact, contacts, sync.Mutex{}, dataStore, dataChs}
 	go network.Interpreter(receive, routingTable)
 	return &network
 	// return receive, send
@@ -71,7 +72,7 @@ func Listen(commReceive chan CommData) {
 		// if (message.Identifier == com_id) {
 		//     fmt.Println("Msg from: ", message.SenderIP)
 		// }
-		fmt.Println("Msg: ", message)
+		// fmt.Println("Msg: ", message)
 		commReceive <- message
 	}
 }
@@ -81,24 +82,24 @@ func Broadcast(commSend chan CommData) {
 		message := <-commSend
 		ip := message.ReceiverIP
 
-		fmt.Println("COMM: Broadcasting message to: " + ip + port)
+		// fmt.Println("COMM: Broadcasting message to: " + ip + port)
 		broadcastAddress, err := net.ResolveUDPAddr("udp", ip+port)
 		if err != nil {
-			fmt.Println("ERROR: ", err)
+			fmt.Println("Error resolving UDPAddr: ", err)
 		}
 
-		localAddress, err := net.ResolveUDPAddr("udp", GetLocalIP())
+		// localAddress, err := net.ResolveUDPAddr("udp", GetLocalIP()+port)
+		// if err != nil {
+		// 	fmt.Println("Error local resolving UDPAddr:: ", err)
+		// }
+		connection, err := net.DialUDP("udp", nil, broadcastAddress)
 		if err != nil {
-			fmt.Println("ERROR: ", err)
-		}
-		connection, err := net.DialUDP("udp", localAddress, broadcastAddress)
-		if err != nil {
-			fmt.Println("ERROR: ", err)
+			fmt.Println("Error dialing up udp: ", err)
 		}
 
 		convMsg, err := json.Marshal(message)
 		if err != nil {
-			fmt.Println("ERROR: ", err)
+			fmt.Println("Error marshaling: ", err)
 		}
 		connection.Write(convMsg)
 
@@ -170,7 +171,7 @@ func GetLocalIP() string {
 	var localIP string
 	addr, err := net.InterfaceAddrs()
 	if err != nil {
-		fmt.Printf("GetLocalIP in communication failed")
+		fmt.Println("GetLocalIP in communication failed")
 		return "localhost"
 	}
 
@@ -242,6 +243,8 @@ func (network *Network) SendFindContactResponse(contact *Contact, routingTable *
 
 func (network *Network) CreateNewLookupChannel(queryID KademliaID) {
 	lookupChannel := make(chan Contact, 10)
+	network.lookupChsLock.Lock()
+	defer network.lookupChsLock.Unlock()
 	network.lookupChs[queryID] = lookupChannel
 }
 
@@ -275,7 +278,7 @@ func (network *Network) SendFindDataMessage(contact Contact, hash KademliaID) {
 
 func (network *Network) SendFindDataResponse(contact *Contact, routingTable *RoutingTable, receivedCommData string, queryID KademliaID) {
 	kClosestContactOrData := "" // Det här är inte bra enligt någon kodstandard, men funka kommer det
-	if data, exists := network.dataStore[queryID]; exists {
+	if data, exists := network.dataStore[queryID.String()]; exists {
 		kClosestContactOrData = "!" + data
 	} else {
 		kademliaIDtoLookup := queryID
@@ -292,7 +295,7 @@ func (network *Network) SendFindDataResponse(contact *Contact, routingTable *Rou
 		*(network.localContact.ID),
 		port,
 		port,
-		FIND_CONTACT,
+		FIND_DATA,
 		kClosestContactOrData,
 		true,
 		queryID,
@@ -317,7 +320,7 @@ func (network *Network) SendStoreMessage(data []byte, contact Contact, queryID K
 }
 
 func (network *Network) StoreData(data string, queryID KademliaID) {
-	network.dataStore[queryID] = data
+	network.dataStore[queryID.String()] = data
 }
 
 func ConvertDataToContactlist(recievedCommData string, localContact Contact, queryID KademliaID) (contacts []Contact) {
@@ -327,11 +330,11 @@ func ConvertDataToContactlist(recievedCommData string, localContact Contact, que
 	for _, contactString := range contactStrings {
 		contactElements := strings.Split(contactString, ",")
 		kademliaID := NewKademliaID(contactElements[0])
-		fmt.Println("The kademliaId we found was ", kademliaID)
+		// fmt.Println("The kademliaId we found was ", kademliaID)
 		address := contactElements[1]
 		distance := kademliaID.CalcDistance(queryID)
 
-		contact := Contact{kademliaID, address, distance}
+		contact := Contact{kademliaID, address, distance, sync.Mutex{}}
 
 		contacts = append(contacts, contact)
 	}

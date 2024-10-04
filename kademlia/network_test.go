@@ -2,6 +2,7 @@ package kademlia
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 )
 
@@ -19,7 +20,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestConvertDataToContactlist(t *testing.T) {
-	localContact := Contact{NewKademliaID("FFFFFFFF00000000000000000000000000000000"), "192.128.0.1", NewKademliaID("0000000000000000000000000000000000000000")}
+	localContact := Contact{NewKademliaID("FFFFFFFF00000000000000000000000000000000"), "192.128.0.1", NewKademliaID("0000000000000000000000000000000000000000"), sync.Mutex{}}
 	testID1 := NewKademliaID("FFFFFFFF0000000000000000000000000000000F")
 	testID2 := NewKademliaID("FFFFFFFF000000000000000000000000000000F0")
 	testID3 := NewKademliaID("FFFFFFFF00000000000000000000000000000F00")
@@ -32,9 +33,9 @@ func TestConvertDataToContactlist(t *testing.T) {
 	fmt.Println("The test string is: ", testString)
 	testContacts := ConvertDataToContactlist(testString, localContact, *localContact.ID)
 
-	contact1 := Contact{testID1, testIP1, testID1.CalcDistance(*localContact.ID)}
-	contact2 := Contact{testID2, testIP2, testID2.CalcDistance(*localContact.ID)}
-	contact3 := Contact{testID3, testIP3, testID3.CalcDistance(*localContact.ID)}
+	contact1 := Contact{testID1, testIP1, testID1.CalcDistance(*localContact.ID), sync.Mutex{}}
+	contact2 := Contact{testID2, testIP2, testID2.CalcDistance(*localContact.ID), sync.Mutex{}}
+	contact3 := Contact{testID3, testIP3, testID3.CalcDistance(*localContact.ID), sync.Mutex{}}
 	correctContacts := [...]Contact{contact1, contact2, contact3}
 
 	for i := 0; i < 3; i++ {
