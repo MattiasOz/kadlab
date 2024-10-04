@@ -94,6 +94,7 @@ func TestSendFindContactMessage(t *testing.T) {
 	}
 }
 
+// TODO: Update tests with mutex
 func TestSendStoreMessage(t *testing.T) {
 	id := NewKademliaID("FFFFFFFF00000000000000000000000000000000")
 	localContact := NewContact(id, "localhost:8000")
