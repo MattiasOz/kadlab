@@ -1,7 +1,13 @@
 # FROM alpine:latest
-FROM archlinux:base-20240929.0.266368
+FROM archlinux:base-20240929.0.266368 AS builder
+
+WORKDIR /app
+RUN pacman -Syu --noconfirm && pacman -S go gcc --noconfirm
+
+COPY . ./
+RUN ./compile.sh
+
 #
-# RUN pacman -Syu --noconfirm && pacman -S go --noconfirm
 # Add the commands needed to put your compiled go binary in the container and
 # run it when the container starts.
 #
@@ -13,6 +19,7 @@ FROM archlinux:base-20240929.0.266368
 # "kadlab", which you do by using the following command:
 #
 
+FROM archlinux:base-20240929.0.266368
 WORKDIR /app
 # RUN apk add go
 # COPY kademlia ./kademlia
@@ -20,8 +27,9 @@ WORKDIR /app
 # COPY go.mod ./go.mod
 # ENTRYPOINT go run main.go
 # COPY --chmod=0755 d7024e ./d7024e
-COPY d7024e ./d7024e
-COPY cli/cli ./cli
+# COPY d7024e ./d7024e
+COPY --from=builder /app/d7024e /app/cli/cli ./
+# COPY cli/cli ./cli
 # COPY . ./
 # RUN go build
 ENTRYPOINT ./d7024e

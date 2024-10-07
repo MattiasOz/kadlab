@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -19,7 +20,9 @@ type Kademlia struct {
 
 func Init() Kademlia {
 	localID := NewRandomKademliaID()
-	if GetLocalIP() == "172.18.0.3" { // En hårdkodad bootstrap-nod
+    mother := strings.Split(GetLocalIP(), ".")[:2]
+    mother = append(mother, "0", "3")
+	if GetLocalIP() == strings.Join(mother, ".") { // En hårdkodad bootstrap-nod
 		localID = NewKademliaID("FFFFFFFF00000000000000000000000000000000")
 	}
 	localContact := NewContact(localID, GetLocalIP())

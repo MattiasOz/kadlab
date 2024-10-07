@@ -1,0 +1,6 @@
+*
+!cli
+!kademlia
+!compile.sh
+!main.go
+!go.mod

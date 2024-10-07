@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"time"
+    "strings"
 )
 
 func main() {
@@ -14,14 +15,17 @@ func main() {
 
 	kadlab := kademlia.Init()
 
-	if kademlia.GetLocalIP() != "172.18.0.3" {
+    tmp := strings.Split(kademlia.GetLocalIP(), ".")[:2]
+    tmp = append(tmp, "0", "3")
+    mother := strings.Join(tmp, ".")
+	if kademlia.GetLocalIP() != mother {
 		time.Sleep((time.Duration(5 + rand.Intn(10))) * time.Second)
-		bootstrapNode := kademlia.NewContact(kademlia.NewKademliaID("FFFFFFFF00000000000000000000000000000000"), "172.18.0.3")
+		bootstrapNode := kademlia.NewContact(kademlia.NewKademliaID("FFFFFFFF00000000000000000000000000000000"), mother)
 		kadlab.Ping(&bootstrapNode)
 		time.Sleep((time.Duration(5 + rand.Intn(10))) * time.Second)
 		kadlab.LookupSelf()
 	} else {
-		bootstrapNode := kademlia.NewContact(kademlia.NewKademliaID("FFFFFFFF00000000000000000000000000000000"), "172.18.0.3")
+		bootstrapNode := kademlia.NewContact(kademlia.NewKademliaID("FFFFFFFF00000000000000000000000000000000"), mother)
 		kadlab.Ping(&bootstrapNode)
 	}
 	fmt.Println("\033[32mStartup is complete\033[0m")

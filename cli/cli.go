@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -35,7 +36,7 @@ func send_message(command string, data string) {
 
 	conn, err := net.Dial("unix", kademlia.SOCKET_PATH)
 	if err != nil {
-		fmt.Println("Couldn't dial socker", err)
+        log.Fatalln("Socket not found. Make sure kademlia is running")
 	}
 	defer conn.Close()
 
