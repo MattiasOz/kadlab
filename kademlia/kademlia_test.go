@@ -16,7 +16,7 @@ func TestProcessContactLookupReturns(t *testing.T) {
 	dataChan := kadTest.network.lookupChs[*targetContact.ID]
 	go dataspoofer(dataChan)
 
-	returnedList := kadTest.ProcessContactLookupReturns(targetContact.ID)
+	returnedList, _ := kadTest.ProcessContactLookupReturns(targetContact.ID)
 
 	// These are the contacts we'll be placing in the reference list
 	id1 := NewKademliaID("FFFFFFFF00000000000000000000FF0000000000")
@@ -96,7 +96,7 @@ func TestProcessDataLookupReturns(t *testing.T) {
 	lookupChan := kadTest.network.lookupChs[*targetContact.ID]
 	go dataspoofer2(dataChan, lookupChan)
 
-	returnedstring := kadTest.ProcessDataLookupReturns(targetContact.ID)
+	returnedstring, _ := kadTest.ProcessDataLookupReturns(targetContact.ID)
 	expectedstring := "thisisateststring"
 
 	if returnedstring != expectedstring {

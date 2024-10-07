@@ -63,7 +63,7 @@ func TestSendPingMessage(t *testing.T) {
 	send := make(chan CommData, 10)
 	contacts := make(map[KademliaID]chan Contact)
 	dataChs := make(map[KademliaID]chan string)
-	network := Network{receive, send, &localContact, contacts, map[KademliaID]string{}, dataChs}
+	network := Network{receive, send, &localContact, contacts, sync.Mutex{}, map[string]string{}, dataChs}
 	network.SendPingMessage(&targetContact, false)
 	message := <-send
 	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", PING, "", false, *NewKademliaID("0000000000000000000000000000000000000000")}
@@ -83,9 +83,9 @@ func TestSendFindContactMessage(t *testing.T) {
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
 	contacts := make(map[KademliaID]chan Contact)
-	dataStore := make(map[KademliaID]string)
+	dataStore := make(map[string]string)
 	dataChs := make(map[KademliaID]chan string)
-	network := Network{receive, send, &localContact, contacts, dataStore, dataChs}
+	network := Network{receive, send, &localContact, contacts, sync.Mutex{}, dataStore, dataChs}
 	network.SendFindContactMessage(&targetContact, *network.localContact.ID)
 	message := <-send
 	testCommData := CommData{network.localContact.Address, targetContact.Address, *(network.localContact.ID), ":3000", ":3000", FIND_CONTACT, "", false, *(network.localContact.ID)}
@@ -106,9 +106,9 @@ func TestSendStoreMessage(t *testing.T) {
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
 	contacts := make(map[KademliaID]chan Contact)
-	dataStore := make(map[KademliaID]string)
+	dataStore := make(map[string]string)
 	dataChs := make(map[KademliaID]chan string)
-	network := Network{receive, send, &localContact, contacts, dataStore, dataChs}
+	network := Network{receive, send, &localContact, contacts, sync.Mutex{}, dataStore, dataChs}
 	data := []byte("thisstringisatest")
 	network.SendStoreMessage(data, targetContact, *network.localContact.ID)
 	message := <-send
@@ -142,9 +142,9 @@ func TestSendFindContactResponse(t *testing.T) {
 	receive := make(chan CommData, 10)
 	send := make(chan CommData, 10)
 	contacts := make(map[KademliaID]chan Contact)
-	dataStore := make(map[KademliaID]string)
+	dataStore := make(map[string]string)
 	dataChs := make(map[KademliaID]chan string)
-	network := Network{receive, send, &localContact, contacts, dataStore, dataChs}
+	network := Network{receive, send, &localContact, contacts, sync.Mutex{}, dataStore, dataChs}
 	network.SendFindContactResponse(&targetContact1, routingTable, targetContact1.ID.String(), *(network.localContact.ID))
 	message := <-send
 	orderedContacts := ""
@@ -169,8 +169,8 @@ func TestStoreData(t *testing.T) {
 	net := NetworkInit(&localContact, localRouting)
 
 	net.StoreData(itemValue, *itemID)
-	if net.dataStore[*itemID] != itemValue {
-		t.Errorf("TestStoreData failed, got %v, expected %v", net.dataStore[*itemID], itemValue)
+	if net.dataStore[itemID.String()] != itemValue {
+		t.Errorf("TestStoreData failed, got %v, expected %v", net.dataStore[itemID.String()], itemValue)
 	}
 }
 
