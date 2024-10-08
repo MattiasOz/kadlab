@@ -21,7 +21,7 @@ type Kademlia struct {
 func Init() Kademlia {
 	localID := NewRandomKademliaID()
     mother := strings.Split(GetLocalIP(), ".")[:2]
-    mother = append(mother, "0", "3")
+    mother = append(mother, "0", "2")
 	if GetLocalIP() == strings.Join(mother, ".") { // En hårdkodad bootstrap-nod
 		localID = NewKademliaID("FFFFFFFF00000000000000000000000000000000")
 	}

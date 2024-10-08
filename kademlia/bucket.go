@@ -27,7 +27,7 @@ func newBucket() *bucket {
 // or moves it to the front of the bucket if it already existed
 func (bucket *bucket) AddContact(contact Contact) (bool, *Contact) {
 	var element *list.Element
-	bucket.listMu.Lock()
+    bucket.listMu.Lock()
 	defer bucket.listMu.Unlock()
 	for e := bucket.list.Front(); e != nil; e = e.Next() {
 		nodeID := e.Value.(Contact).ID
@@ -55,15 +55,15 @@ func (bucket *bucket) AddContact(contact Contact) (bool, *Contact) {
 
 func (bucket *bucket) heartbeat(oldContact Contact, newContact Contact) {
 	time.Sleep(heartbeatTimeout)
+	bucket.listMu.Lock()
+	defer bucket.listMu.Unlock()
 	if bucket.list.Back().Value != oldContact {
 		// oldest node returned ping in time
 		return
 	}
 	// oldest node did not return the ping
-	bucket.listMu.Lock()
 	bucket.list.Remove(bucket.list.Back())
 	bucket.list.PushFront(newContact)
-	bucket.listMu.Unlock()
 }
 
 // GetContactAndCalcDistance returns an array of Contacts where
@@ -71,7 +71,7 @@ func (bucket *bucket) heartbeat(oldContact Contact, newContact Contact) {
 func (bucket *bucket) GetContactAndCalcDistance(target *KademliaID) []Contact {
 	var contacts []Contact
 
-	bucket.listMu.Lock()
+    bucket.listMu.Lock()
 	for elt := bucket.list.Front(); elt != nil; elt = elt.Next() {
 		contact := elt.Value.(Contact)
 		contact.CalcDistance(target)

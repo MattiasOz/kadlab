@@ -34,6 +34,10 @@ func send_message(command string, data string) {
 		Content:     data,
 	}
 
+    if strings.ToLower(command) == "get" && len(data) != 40 {
+        log.Fatalln("The hash should be 40 characters long")
+    }
+
 	conn, err := net.Dial("unix", kademlia.SOCKET_PATH)
 	if err != nil {
         log.Fatalln("Socket not found. Make sure kademlia is running")
@@ -55,12 +59,19 @@ func send_message(command string, data string) {
 	conn.SetReadDeadline(time.Now().Add(timeout))
 	buf := make([]byte, 1024)
 	length, err := conn.Read(buf)
+
 	if err != nil {
 		if err == io.EOF {
 			fmt.Println("No data was returned")
 			return
 		} else {
-			panic(err)
+            switch err.(type) {
+            case *net.OpError:
+                fmt.Println("Timed out")
+                return
+            default: 
+                panic(err)
+            }
 		}
 	}
 	buf = buf[:length]
