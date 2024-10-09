@@ -30,6 +30,8 @@ func (contact *Contact) CalcDistance(target *KademliaID) {
 
 // Less returns true if contact.distance < otherContact.distance
 func (contact *Contact) Less(otherContact *Contact) bool {
+    contact.lock.Lock()
+    defer contact.lock.Unlock()
 	return contact.distance.Less(otherContact.distance)
 }
 
